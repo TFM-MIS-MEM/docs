@@ -271,9 +271,16 @@ contratación del add-on de modelo.
 ## Seguridad
 
 - **Contraseñas y API KEY**: hasheadas, nunca reversibles.
-- **JWT**: validado por firma en Kong, sin consultar a `auth`. Caducidad
-  60 min. Ventana de revocación asumida y documentada.
-- **API KEY**: validada contra `auth` con caché de ~60 s en la pasarela.
+- **JWT**: validado por firma **y por emisor** en Kong, sin consultar a `auth`.
+  La vigencia sale de `JWT_EXPIRES_IN`, dentro del rango [5 min, 2 h] que impone
+  la guarda de arranque de `auth`; no es una constante de 60 minutos. Ventana de
+  revocación asumida y documentada más abajo.
+- **API KEY**: validada contra `auth`, con caché de ~60 s del veredicto positivo
+  en la pasarela. Un veredicto negativo se cachea 10 s ---optimización de
+  latencia y disponibilidad, **no** un control de seguridad: la inundación con
+  claves inventadas la cubre el límite de peticiones---. Si `auth` no responde,
+  la pasarela devuelve `503` y **no cachea nada**: servir un veredicto caducado
+  sería alargar en silencio la ventana de revocación.
 - **Secreto de firma de webhooks**: almacenado **cifrado, no hasheado** — hay
   que recuperarlo en claro para calcular el HMAC saliente. Es la excepción a la
   regla anterior.
