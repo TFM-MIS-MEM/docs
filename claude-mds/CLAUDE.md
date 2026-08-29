@@ -1,9 +1,7 @@
 # CLAUDE.md — TFM: SaaS multicanal de reconocimiento facial
 
-> **v2.** Fusiona las convenciones de ingeniería del proyecto con las
-> decisiones de diseño acordadas en el documento de diseño (DoD) y las
-> especificaciones OpenAPI. Sustituye a la v1, que describía una arquitectura
-> anterior.
+Convenciones de ingeniería del proyecto y decisiones de diseño acordadas en el
+documento de diseño (DoD) y en las especificaciones OpenAPI.
 
 ## Visión general
 
