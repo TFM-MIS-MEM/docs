@@ -44,6 +44,7 @@ Tres aportaciones que sostienen el trabajo:
 | Continuidad entre sesiones | `docs/claude-mds/ESTADO.md`, este fichero |
 | Memoria | Overleaf, capítulos 1 a 9 más anexos |
 | Documento de diseño | `DoD-TFM.docx` |
+| Scripts del entorno local | `docs/scripts/dev-up.sh` y `dev-down.sh` |
 
 > ⚠️ **`repos/CLAUDE.md` no está bajo control de versiones.** Es un *stub* de
 > una sola línea ---`@docs/claude-mds/CLAUDE.md`--- que vive en la raíz del
@@ -57,6 +58,22 @@ Tres aportaciones que sostienen el trabajo:
 > forma de versionarlo: el workspace que lo contiene no es un repositorio, y
 > ponerlo dentro de uno de los repositorios de servicio lo pondría en el sitio
 > equivocado.
+>
+> Lo mismo vale para **`repos/scripts`**, que es un enlace simbólico a
+> `docs/scripts`. Los scripts sí están versionados; el enlace no. Sin él,
+> `scripts/dev-up.sh` no existe y hay que invocarlos por su ruta real, que
+> funciona igual:
+>
+> ```sh
+> ln -s docs/scripts scripts        # recrear el atajo
+> docs/scripts/dev-up.sh            # o invocarlos directamente
+> ```
+>
+> Los scripts localizan la raíz del workspace **buscándola** ---suben
+> directorios hasta encontrar el que contiene los tres repositorios de
+> servicio--- en lugar de contarla desde su propia ubicación, de modo que
+> funcionan tanto por el enlace como por la ruta real. Si los repositorios
+> vivieran en otro sitio, `TFM_ROOT=/ruta docs/scripts/dev-up.sh`.
 
 ---
 
