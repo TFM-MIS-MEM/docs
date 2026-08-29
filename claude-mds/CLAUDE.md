@@ -181,6 +181,15 @@ forma de la respuesta:
   agotada es `403`.
 - `410 Gone` para retos de liveness caducados.
 
+> ⚠️ **La pasarela ya no cumple este criterio, y está sin decidir cómo
+> arreglarlo** (issue #68). El plugin emite `401`, `403` y `503`, y el
+> `rate-limiting` de Kong emite `429`, sobre operaciones que no los declaran: de
+> 47 operaciones, 30 no declaran `429`, 28 no declaran `403` y ninguna declara
+> `503`. Hay que decidir entre declarar un conjunto común de respuestas de
+> pasarela o documentar que el contrato describe el servicio y no lo que tiene
+> delante. **Decidir antes de escribir `fr-commercial`**, que son 27 de esas 47
+> operaciones.
+
 ### 7. Nomenclatura
 
 - Colecciones MongoDB: plural, `snake_case` → `webhook_endpoints`
