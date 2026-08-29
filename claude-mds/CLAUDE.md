@@ -332,7 +332,7 @@ el plugin de la pasarela.
 | `role` | `CUSTOMER` \| `ADMIN` |
 | `iss` | `auth-microservice` |
 | `iat` | emisión |
-| `exp` | emisión + 60 min |
+| `exp` | `iat` + `JWT_EXPIRES_IN` |
 
 La pasarela verifica **firma e `iss`**, sin consultar a `auth`. Verificar
 `iss` impide que un token firmado con la misma clave para otro propósito
