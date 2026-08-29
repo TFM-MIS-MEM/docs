@@ -35,14 +35,28 @@ Tres aportaciones que sostienen el trabajo:
 
 | Artefacto | Ubicación |
 |---|---|
-| Decisiones de diseño | `CLAUDE.md`, raíz del workspace |
-| Contratos (fuente de verdad) | `openapi/*.yaml` dentro de cada repositorio |
+| Decisiones de diseño | `docs/claude-mds/CLAUDE.md` |
+| Contratos (fuente de verdad) | `<servicio>/openapi/<servicio>.yaml`. Los de `openapi/` del workspace son enlaces simbólicos |
 | Backlog | Issues de `TFM-MIS-MEM/docs` |
-| Detalle de los issues | `ISSUES.md` |
-| Prompts de las sesiones | `PROMPTS-FASE1.md` |
-| Estado del código heredado | `AUDITORIA.md` |
+| Planificación de la fase 1 | `docs/claude-mds/ISSUES.md` — fechada, no es el backlog |
+| Prompts de las sesiones | `docs/claude-mds/PROMPTS-FASE1.md` |
+| Estado del código heredado | `docs/claude-mds/AUDITORIA.md` — foto congelada |
+| Continuidad entre sesiones | `docs/claude-mds/ESTADO.md`, este fichero |
 | Memoria | Overleaf, capítulos 1 a 9 más anexos |
 | Documento de diseño | `DoD-TFM.docx` |
+
+> ⚠️ **`repos/CLAUDE.md` no está bajo control de versiones.** Es un *stub* de
+> una sola línea ---`@docs/claude-mds/CLAUDE.md`--- que vive en la raíz del
+> workspace, que no es un repositorio. Existe porque Claude Code solo carga al
+> arrancar el `CLAUDE.md` del directorio de trabajo: los de directorios hijos se
+> cargan bajo demanda, mientras que los **imports sí se resuelven al inicio**, y
+> su ruta es relativa al fichero que los contiene. Sin ese stub, las decisiones
+> de diseño no entran en el contexto de una sesión nueva.
+>
+> Al clonar el proyecto en otra máquina **hay que recrearlo a mano**. No hay
+> forma de versionarlo: el workspace que lo contiene no es un repositorio, y
+> ponerlo dentro de uno de los repositorios de servicio lo pondría en el sitio
+> equivocado.
 
 ---
 
