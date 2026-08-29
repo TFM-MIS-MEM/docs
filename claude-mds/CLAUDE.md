@@ -133,6 +133,22 @@ X-Role           "CUSTOMER" | "ADMIN"
 original.** Si no, cualquiera suplanta otra cuenta enviándolas a mano. Los
 microservicios solo son alcanzables a través de la pasarela.
 
+Cómo se impone, porque el saneado es propiedad de la pasarela y no de un plugin
+concreto:
+
+| Ruta | Mecanismo |
+|---|---|
+| Con `space-auth` | El plugin llama a `clear_header()` sobre las tres **incondicionalmente**, antes de cualquier bifurcación, de modo que ningún camino de salida ---tampoco los que terminan en error--- puede dejar pasar la del cliente |
+| Sin `space-auth` (operaciones públicas de `auth`, receptor de Stripe) | Plugin `request-transformer` declarativo con `remove.headers` sobre las tres |
+
+**Toda ruta que llegue a un backend tiene que sanearlas**, la autentique quien
+la autentique. Escribirlas solo cuando hay valor que escribir es el error
+concreto que tenía la versión anterior del plugin: si el dato faltaba, la
+cabecera del cliente pasaba intacta.
+
+`Authorization` y `X-API-Key` **no se tocan**: son credenciales del cliente, no
+identidad ya resuelta, y el servicio de destino puede necesitarlas.
+
 ### 5. Patrones de responsabilidad (Zimmermann et al.)
 
 El criterio es **el acceso al estado del servidor**, no el verbo HTTP ni la
