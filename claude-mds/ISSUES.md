@@ -1,8 +1,20 @@
-# Backlog del proyecto
+# Planificación de la fase 1
 
-Los issues viven en el repositorio de documentación. Los de la **Fase 1** están
-completamente especificados; los de las fases 2 a 4 se refinarán al llegar a
-ellas.
+> **Documento de planificación, no backlog.** Fechado el **2026-08-29**.
+>
+> El backlog vivo son los **issues de `TFM-MIS-MEM/docs`**: `gh issue list`.
+> Este fichero recoge el detalle con el que se especificó la fase 1 —alcance,
+> criterios de aceptación y el razonamiento de cada issue—, que no cabe en la
+> descripción de un issue de GitHub y que se cita desde ellas.
+>
+> **Ya diverge, y es esperado.** No refleja los issues abiertos durante la
+> ejecución: `#65` y `#66` (alineación de `pricing` con su contrato), `#67`
+> (`commitlint` sin `extends`), `#68` (cómo declara el contrato las respuestas
+> que emite la pasarela) y `#69` (CORS con `origins:["*"]` y `credentials`).
+> Ante cualquier discrepancia, manda GitHub.
+
+Los issues de la **Fase 1** están completamente especificados; los de las fases
+2 a 4 se refinarán al llegar a ellas.
 
 Etiquetas: `fase:1..4` · `svc:auth|pricing|gateway|fr|frontend` ·
 `tipo:contrato|seguridad|test|infra|feature` · `prio:bloqueante`

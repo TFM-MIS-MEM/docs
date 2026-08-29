@@ -1,5 +1,11 @@
 # Auditoría del workspace contra las especificaciones OpenAPI y CLAUDE.md
 
+> **Foto fechada del código heredado, congelada.** Refleja el estado del
+> repositorio en el momento de auditarlo y **no se actualiza**: se cita. Los
+> hallazgos que se van cerrando se siguen en los issues de `TFM-MIS-MEM/docs`,
+> no aquí. Un documento de auditoría que se edita a medida que se arregla lo
+> que denuncia deja de poder usarse como línea base.
+
 **Fecha:** 2026-08-26
 **Alcance auditado:** `auth-microservice/` (contra `openapi/auth.yaml`),
 `pricing-microservice/` (contra `openapi/pricing.yaml`), `api-gateway/`
