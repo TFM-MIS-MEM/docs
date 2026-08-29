@@ -315,6 +315,14 @@ contratación del add-on de modelo.
   identidad y permitiría identificar a desconocidos.
 - **URLs de webhook**: rechazar `http://`, IP privadas, `localhost` y
   direcciones de metadatos de nube (SSRF).
+- **`X-API-Key` NO va en las cabeceras permitidas del CORS de la pasarela.** Es
+  deliberado, y es la decisión más fácil de revertir por conveniencia el día que
+  una llamada desde el navegador falle en el *preflight*. El canal de API es
+  máquina a máquina: una API KEY en el navegador es una API KEY en el código del
+  cliente, legible por cualquiera que abra las herramientas de desarrollo. El
+  caso del navegador ---el widget--- son los **tokens de enrolamiento**, que
+  existen justamente para no repartir la credencial permanente. Ese mismo plugin
+  arrastra además `origins:["*"]` con `credentials: true` (issue #69).
 - **Paginación**: máximo 100 elementos por página. Sin tope,
   `GET /identities` sobre 50.000 registros es un vector de denegación de
   servicio.
