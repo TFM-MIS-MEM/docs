@@ -3,7 +3,8 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** cierre de la sesión 2 (Auth conforme al contrato).
+> **Última actualización:** cierre de la sesión 3 (la pasarela autentica los dos
+> canales; A1 y A4 fusionados).
 
 ---
 
@@ -127,24 +128,55 @@ movidos a `tests/legacy/` con su historia intacta.
 en verde. Cobertura de 46/17/19/48 a 85/70/85/86. Documentación servida desde
 el `.yaml`, lo que cierra C2 para `auth`.
 
+**Sesión 3 — A1(pricing y Kong), A4 y, de hecho, A5.** Fusionadas
+`pricing-microservice#1` y `api-gateway#1`, a la vez, con las tres ramas
+cerradas: `fase1/A4` en ambos repositorios y `feat/stripe-webhook-checkout`, que
+quedó contenida en `main` sin nada propio fuera.
+
+- **A1.** Ningún componente monta ya `/api/`. `POST /v1/auth/login` responde
+  `200` a través de la pasarela, que era el criterio del issue.
+- **A4.** El plugin `space-auth` no autenticaba nada: exigía un `pricing_token`
+  que `auth` nunca ha devuelto y no estaba aplicado a ninguna ruta activa. Ahora
+  acepta las dos credenciales —JWT por firma **y emisor**, sin consultar a
+  `auth`; API KEY contra `validate-key` con caché de 60 s—, propaga las tres
+  cabeceras del contrato y distingue `401`, `403` y `503`.
+- **A5, sin planificarlo.** El saneado de cabeceras quedó cubierto por
+  `api-gateway/tests/identity-headers.sh`, que levanta un servicio de eco,
+  publica su ruta por la Admin API y restaura `kong.yml` al salir. Comprueba que
+  el cliente no cuela `X-Account-Id` ni por las rutas con plugin ni por las que
+  no lo llevan. Se añadió también `tests/cors-preflight.sh`.
+- **I7 no era un problema.** Los tres `docker-compose.dev.yml` ya usaban la red
+  externa `tfm-network`; Kong resuelve ambos nombres. Lo que sí sigue
+  desalineado son los `docker-compose.yml` de producción, con una red por
+  repositorio.
+
+Cinco issues abiertos durante la ejecución, ninguno arreglado de paso: **#65** y
+**#66** (alineación de `pricing` con su contrato), **#67** (`commitlint` sin
+`extends`), **#68** (respuestas que emite la pasarela y el contrato no declara)
+y **#69** (CORS con `origins:["*"]` y `credentials`).
+
+**La CI de `pricing` no había estado nunca en verde**, y no por A1: fallaba en
+formato, en `pnpm audit` con 32 avisos, y en cuatro suites que ni arrancaban
+porque `stripe.service.js` construye el cliente al cargar el módulo y en el
+runner no hay `.env`. Las tres cosas quedaron arregladas, más la subida de las
+acciones y el alineamiento de la toolchain a Node 22 y pnpm 11.24.0.
+
 ### Siguiente paso
 
-**Sesión 3 — A1(pricing y Kong) y A4.** La más delicada de la fase: toca dos
-repositorios y, mal hecha, deja el sistema sin arrancar.
+**Sesión 4 — Fase 2, `fr-commercial`.** Terreno nuevo y el grueso del trabajo.
+A5 ya está hecho, así que la sesión 4 que estaba prevista para él se libera.
 
 Antes de empezar:
 
-- Verificar que Kong puede resolver `auth-service` y `pricing-service` por
-  nombre. Cada `compose` crea su propia red (issue I7, clasificado en fase 4).
-  **Sin esto la sesión no se puede verificar**: no habrá forma de comprobar que
-  una petición atraviesa la pasarela.
-- El plugin debe verificar firma **e** `iss === "auth-microservice"`.
-- El claim del sujeto es `sub`, no `id`.
-- No cablear 3600 en la lógica de caché: la vigencia es configurable dentro de
-  [5m, 2h].
-
-Después: sesión 4 (A5, test de saneado de cabeceras) y Fase 2, que es
-`fr-commercial` y el grueso del trabajo.
+- **Decidir #68**, que afecta a 27 de las 47 operaciones del contrato: si se
+  declara un conjunto común de respuestas de pasarela o se documenta que el
+  contrato describe el servicio y no lo que tiene delante. Decidirlo **después**
+  de escribir `fr-commercial` obliga a repasar las 27.
+- `fr-commercial` recibe `X-Account-Id` ya validado y **no modela la entidad
+  Account**. Kong tiene que enrutar `/v1/fr/commercial`: el bloque está
+  comentado en `kong.yml`, listo, con el plugin ya configurado.
+- El fichero `openapi/fr-commercial.yaml` sigue siendo el único que no vive
+  dentro de un repositorio de servicio, porque ese repositorio no existe aún.
 
 ---
 
@@ -181,6 +213,26 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
   especificación puede expresar (claims del JWT, vigencia); `legacy/` documenta
   el comportamiento anterior. Que existan las dos primeras **es** el argumento
   de que OpenAPI no basta como fuente única.
+- **El saneado de cabeceras es propiedad de la pasarela, no de un plugin.** Las
+  rutas que no llevan `space-auth` —las públicas de `auth` y el receptor de
+  Stripe— lo hacen con `request-transformer`. Si dependiera del plugin, toda
+  ruta que no lo lleve quedaría sin sanear, que es justo lo que pasaba.
+- **`auth` caído devuelve `503` y no se cachea nada.** Se implementa con un
+  `new_ttl` negativo, que mlcache trata como *bypass*, y no devolviendo un
+  error: con un error, mlcache entra en su rama de resurrección y sirve el
+  veredicto rancio. Esa rama está armada a 30 s por omisión, así que servir el
+  veredicto viejo habría sido el comportamiento por defecto y no una decisión.
+- **La caché negativa es optimización de latencia, no un control de
+  seguridad.** Se etiqueta así a propósito: la inundación con claves inventadas
+  la cubre el límite de peticiones (I6), no un TTL.
+- **`X-API-Key` no va en las cabeceras permitidas del CORS.** El canal de API es
+  máquina a máquina; el caso del navegador son los tokens de enrolamiento. Hay
+  un test que lo fija para que revertirlo sea una decisión y no un descuido.
+- **La especificación se versiona dentro del repositorio de su servicio.** Los
+  `openapi/*.yaml` de la raíz del workspace son enlaces simbólicos, no copias.
+- **`/docs` va exento de la CSP de `helmet` en todos los servicios.** Sin ello,
+  Swagger UI no puede llamar a la pasarela: la llamada muere dentro del
+  navegador y no deja rastro en ningún registro del servidor.
 
 ---
 
@@ -195,6 +247,13 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
   repositorio de microservicio. Copiarlo en el `Dockerfile` es suficiente para
   este alcance, pero introduce un paso de sincronización que hay que
   documentar.
+- **Cliente de Stripe perezoso** en `pricing`. Hoy se construye al cargar el
+  módulo, de modo que el `require` falla sin credenciales. La batería lo sortea
+  con valores de relleno, pero que un módulo de servicio no pueda importarse sin
+  secretos es un problema de diseño, no de pruebas.
+- **Las acciones de `release.yml` y las de `auth`** arrastran el aviso de
+  obsolescencia de Node 20. Solo se subieron las de `ci-cd.yml` de `pricing`,
+  que es el único flujo que la PR podía ejecutar y por tanto verificar.
 - **Modelado del canal API en SPHERE.** El metamodelo iPricing representa la
   estructura comercial del canal web, no las condiciones de capacidad del canal
   programático. Confirmar con el tutor si ACM2YAML está disponible; las
