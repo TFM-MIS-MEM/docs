@@ -174,47 +174,65 @@ el 6 es implementación y sí admite mecanismos; el 8 recoge evidencia---.
 
 ### La fase 1 NO está terminada
 
-La cadena de identidad ---auth, la pasarela y el enrutado--- sí lo está, que era
-el criterio para desbloquear lo demás. Lo que queda abierto es **todo `pricing`
-salvo las rutas**:
+La cadena de identidad ---`auth`, la pasarela y el enrutado--- sí lo está, que
+era el criterio para desbloquear lo demás. Lo que queda abierto es **todo
+`pricing` salvo las rutas**:
 
 - **C2 (#32)** lleva `svc:auth` **y** `svc:pricing`, y solo se hizo `auth`. La
   documentación de `pricing` se sigue generando de anotaciones `@swagger` en el
-  código, que es **la tercera fuente de verdad** que este proyecto se propuso
-  eliminar: hay un `openapi/pricing.yaml` en el repositorio que nadie sirve.
-- **C1 (#31) está cerrado, y lleva las mismas dos etiquetas.** Se cerró con la
-  mitad de `auth`. `pricing` conserva sus **35 tests heredados**, escritos
-  contra el contrato anterior: no son red de seguridad, fijan el contrato
-  equivocado. Hay que reabrirlo o abrir su equivalente para `pricing`.
-- **#65** ---el middleware de `pricing` valida el JWT por su cuenta y lee un
-  claim que ya no existe--- y **#66** ---el manejador de errores no devuelve
-  `ErrorReport` y filtra la traza de pila---, ambos `fase:1 svc:pricing`.
+  código, mientras su `openapi/pricing.yaml` está en el repositorio sin que
+  nadie lo sirva.
+- **C1 (#31) está cerrado con la mitad de `auth`.** La de `pricing` se ha
+  separado en **#72** y **reclasificada a `fase:3`**. Sus 35 tests heredados
+  siguen ahí.
+- **#65** ---el middleware valida el JWT por su cuenta y lee un claim que ya no
+  existe--- y **#66** ---el manejador de errores no devuelve `ErrorReport` y
+  filtra la traza de pila---.
 
-### Siguiente paso, y por qué
+### Siguiente paso: media sesión de `pricing`, y después `fr-commercial`
 
-**Decisión de secuencia: primero `fr-commercial` (fase 2), después cerrar
-`pricing`.** No es que la fase 1 esté hecha; es que conviene alterar el orden,
-por tres razones:
+**Primero media sesión con C2-pricing, #65, #66 y los 35 tests a
+`tests/legacy/`. Después, `fr-commercial` (fase 2).** No es cerrar la fase 1 por
+completar el marcador: cada una de esas cuatro cosas tiene una razón para ir
+antes que la fase 2, y lo que no la tiene se ha aplazado.
 
-1. **`fr-commercial` es el grueso del trabajo y el que sostiene la
-   contribución.** Las unidades de consumo ponderadas, el límite de estado y la
-   campaña de medición dependen de que exista. Es lo que más riesgo tiene de no
-   caber en el tiempo restante, y lo que la memoria necesita como resultado.
-2. **Cerrar `pricing` ahora sería trabajo a ciegas.** El endpoint de consumo, la
-   cantidad en complementos y los eventos de Kafka son fase 3, y su forma
-   depende de lo que `fr-commercial` acabe reportando. Alinear hoy `pricing` con
-   su contrato y volver a tocarlo en la fase 3 es pasar dos veces.
-3. **Lo que quedaba de la fase 1 ya no bloquea a nadie.** `fr-commercial` recibe
-   `X-Account-Id` de la pasarela, no de `pricing`; los issues abiertos de
-   `pricing` afectan solo a `pricing`.
+**C2 no depende de nada de `fr-commercial`.** Servir el `.yaml` es el mismo
+cambio que ya se hizo en `auth`. Y hay una razón para no dejarlo: las
+anotaciones `@swagger` **se acaban de repasar a mano en la sesión 3** al mover
+las rutas, de modo que ya no son documentación muerta, sino **una fuente de
+verdad viva y recién actualizada que contradice al contrato**. Cuanto más
+tiempo pase, más cara sale la contradicción.
 
-Lo que sí **no puede esperar**: **#68**, que afecta a 27 de las 47 operaciones
-del contrato. Decidir después de escribir `fr-commercial` obliga a repasar esas
-27 una por una.
+**#65 no afecta solo a `pricing`.** Es **el único ejemplo del repositorio de
+cómo un backend consume la identidad que propaga la pasarela**, y lo hace mal:
+verifica el JWT por su cuenta en vez de leer `X-Account-Id`, lo que obliga a
+compartir `JWT_SECRET` y deja fuera al canal de API. Cuando se escriba
+`fr-commercial`, ese es el patrón que habrá delante para copiar. Si se copia,
+`fr-commercial` necesitará `JWT_SECRET` y su canal de API tampoco funcionará.
+Arreglarlo antes de la fase 2 **es fijar la implementación de referencia**, no
+cerrar la fase 1.
 
-Antes de empezar la fase 2:
+**Los 35 tests heredados fijan el contrato anterior, y la CI está en verde.**
+Eso es peor que el rojo: da una confianza que no existe. Se mueven a
+`tests/legacy/` con su historia, como en `auth`, y se añaden tests de contrato
+para las dos operaciones que sí existen ---`checkout/create-session` y
+`webhooks/stripe`---. La batería queda pequeña, pero verdadera.
 
-- Decidir #68.
+**C1-pricing completo (#72) sí se aplaza a la fase 3.** El ciclo rojo-verde
+necesita código que corregir, y siete de las nueve operaciones del contrato no
+existen todavía. Una batería en rojo durante dos fases enteras deja de mirarse.
+
+**Y después, `fr-commercial`**, que es el grueso del trabajo y lo que sostiene
+la contribución: las unidades de consumo ponderadas, el límite de estado y la
+campaña de medición dependen de que exista. Es también lo que más riesgo tiene
+de no caber en el tiempo restante.
+
+Antes de la fase 2, y esto **no puede esperar**: **decidir #68**, que afecta a
+27 de las 47 operaciones del contrato. Decidirlo después de escribir
+`fr-commercial` obliga a repasar esas 27 una por una.
+
+Otras dos cosas para cuando llegue:
+
 - `fr-commercial` recibe `X-Account-Id` ya validado y **no modela la entidad
   Account**. El bloque de Kong está comentado en `kong.yml`, con el plugin ya
   configurado, y la ruta acordada es `/v1/fr/commercial`.
