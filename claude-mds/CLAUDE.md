@@ -78,6 +78,36 @@ pregunta. Toda modificación de contrato empieza por la especificación.
 /tests                   → pruebas automatizadas
 ```
 
+### Convenciones de Express
+
+**`/docs` va exento de la política de seguridad de contenido de `helmet`, en
+todos los servicios.** La CSP por defecto declara `default-src 'self'` y ningún
+`connect-src`, de modo que el navegador solo permite peticiones al mismo origen
+que sirve la página. Swagger UI apunta a **la pasarela**, que es otro origen, y
+sin la exención cada «Try it out» muere **dentro del navegador**, antes de
+emitir nada:
+
+```js
+app.use((req, res, next) => {
+  if (req.path.startsWith('/docs')) {
+    helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false })(req, res, next);
+  } else {
+    helmet()(req, res, next);
+  }
+});
+```
+
+El relajo se acota a `/docs`; el resto de rutas conserva las cabeceras
+completas, y hay un test por servicio que lo comprueba en los dos sentidos ---
+que `/docs` sale sin la cabecera y que `/health` sale con ella---. Sin el
+segundo, nada impide que la exención se desborde a todo el servicio.
+
+El síntoma es engañoso y conviene reconocerlo: Swagger informa de **«Failed to
+fetch»** y enumera CORS entre las causas posibles. **No es CORS.** La forma de
+distinguirlo es mirar el registro de acceso del servidor: si la petición no
+aparece ahí ---ni siquiera el `OPTIONS` del preflight---, nunca salió del
+navegador y el problema no está en el servidor.
+
 ---
 
 ## Reglas que no se negocian
