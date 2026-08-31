@@ -161,22 +161,65 @@ porque `stripe.service.js` construye el cliente al cargar el módulo y en el
 runner no hay `.env`. Las tres cosas quedaron arregladas, más la subida de las
 acciones y el alineamiento de la toolchain a Node 22 y pnpm 11.24.0.
 
-### Siguiente paso
+**La memoria NO se actualizó en esta sesión**, y es lo que queda para que el
+código y el documento vuelvan a decir lo mismo. Los tres sitios están
+localizados:
 
-**Sesión 4 — Fase 2, `fr-commercial`.** Terreno nuevo y el grueso del trabajo.
-A5 ya está hecho, así que la sesión 4 que estaba prevista para él se libera.
+| Capítulo | Qué falta |
+|---|---|
+| 4 — Diseño del servicio | `\subsection{Ventana de revocación}` afirma que en el canal API «la revocación resulta prácticamente inmediata»: **son hasta 60 s**. Fija además la caducidad del JWT en sesenta minutos, cuando sale de `JWT_EXPIRES_IN` dentro de [5 min, 2 h]. Falta el freno inmediato ---`login` rechaza cuentas suspendidas con `403`--- y la asimetría medida: con `auth` caído, el canal web sigue pasando y el de API recibe `503` |
+| 6 — Implementación | No existe ninguna subsección de la pasarela; Kong solo aparece en la tabla de tecnologías. Ahí encajan el saneado con sus dos mecanismos y por qué el `503` se implementa con un *bypass* de caché y no devolviendo un error |
+| 8 — Validación | El cuarto nivel de prueba: las de extremo a extremo contra la pasarela, que no son de contrato ni unitarias y comprueban lo que ninguna de las dos puede ---que una cabecera de identidad enviada por el cliente no llega al backend--- |
 
-Antes de empezar:
+### La fase 1 NO está terminada
 
-- **Decidir #68**, que afecta a 27 de las 47 operaciones del contrato: si se
-  declara un conjunto común de respuestas de pasarela o se documenta que el
-  contrato describe el servicio y no lo que tiene delante. Decidirlo **después**
-  de escribir `fr-commercial` obliga a repasar las 27.
+La cadena de identidad ---auth, la pasarela y el enrutado--- sí lo está, que era
+el criterio para desbloquear lo demás. Lo que queda abierto es **todo `pricing`
+salvo las rutas**:
+
+- **C2 (#32)** lleva `svc:auth` **y** `svc:pricing`, y solo se hizo `auth`. La
+  documentación de `pricing` se sigue generando de anotaciones `@swagger` en el
+  código, que es **la tercera fuente de verdad** que este proyecto se propuso
+  eliminar: hay un `openapi/pricing.yaml` en el repositorio que nadie sirve.
+- **C1 (#31) está cerrado, y lleva las mismas dos etiquetas.** Se cerró con la
+  mitad de `auth`. `pricing` conserva sus **35 tests heredados**, escritos
+  contra el contrato anterior: no son red de seguridad, fijan el contrato
+  equivocado. Hay que reabrirlo o abrir su equivalente para `pricing`.
+- **#65** ---el middleware de `pricing` valida el JWT por su cuenta y lee un
+  claim que ya no existe--- y **#66** ---el manejador de errores no devuelve
+  `ErrorReport` y filtra la traza de pila---, ambos `fase:1 svc:pricing`.
+
+### Siguiente paso, y por qué
+
+**Decisión de secuencia: primero `fr-commercial` (fase 2), después cerrar
+`pricing`.** No es que la fase 1 esté hecha; es que conviene alterar el orden,
+por tres razones:
+
+1. **`fr-commercial` es el grueso del trabajo y el que sostiene la
+   contribución.** Las unidades de consumo ponderadas, el límite de estado y la
+   campaña de medición dependen de que exista. Es lo que más riesgo tiene de no
+   caber en el tiempo restante, y lo que la memoria necesita como resultado.
+2. **Cerrar `pricing` ahora sería trabajo a ciegas.** El endpoint de consumo, la
+   cantidad en complementos y los eventos de Kafka son fase 3, y su forma
+   depende de lo que `fr-commercial` acabe reportando. Alinear hoy `pricing` con
+   su contrato y volver a tocarlo en la fase 3 es pasar dos veces.
+3. **Lo que quedaba de la fase 1 ya no bloquea a nadie.** `fr-commercial` recibe
+   `X-Account-Id` de la pasarela, no de `pricing`; los issues abiertos de
+   `pricing` afectan solo a `pricing`.
+
+Lo que sí **no puede esperar**: **#68**, que afecta a 27 de las 47 operaciones
+del contrato. Decidir después de escribir `fr-commercial` obliga a repasar esas
+27 una por una.
+
+Antes de empezar la fase 2:
+
+- Decidir #68.
 - `fr-commercial` recibe `X-Account-Id` ya validado y **no modela la entidad
-  Account**. Kong tiene que enrutar `/v1/fr/commercial`: el bloque está
-  comentado en `kong.yml`, listo, con el plugin ya configurado.
-- El fichero `openapi/fr-commercial.yaml` sigue siendo el único que no vive
-  dentro de un repositorio de servicio, porque ese repositorio no existe aún.
+  Account**. El bloque de Kong está comentado en `kong.yml`, con el plugin ya
+  configurado, y la ruta acordada es `/v1/fr/commercial`.
+- `openapi/fr-commercial.yaml` es el único contrato que no vive dentro del
+  repositorio de su servicio, porque ese repositorio no existe aún. Al crearlo,
+  se mueve allí y se deja el enlace simbólico, como los otros dos.
 
 ---
 
@@ -243,17 +286,6 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
   `PATCH /accounts/{id}/status` —única vía de reactivación— lo exige. En un
   despliegue limpio, la primera cuenta suspendida es irrecuperable. Propuesta:
   script idempotente con credenciales por variables de entorno.
-- **Sincronización del `.yaml` entre repositorios.** Vive dentro de cada
-  repositorio de microservicio. Copiarlo en el `Dockerfile` es suficiente para
-  este alcance, pero introduce un paso de sincronización que hay que
-  documentar.
-- **Cliente de Stripe perezoso** en `pricing`. Hoy se construye al cargar el
-  módulo, de modo que el `require` falla sin credenciales. La batería lo sortea
-  con valores de relleno, pero que un módulo de servicio no pueda importarse sin
-  secretos es un problema de diseño, no de pruebas.
-- **Las acciones de `release.yml` y las de `auth`** arrastran el aviso de
-  obsolescencia de Node 20. Solo se subieron las de `ci-cd.yml` de `pricing`,
-  que es el único flujo que la PR podía ejecutar y por tanto verificar.
 - **Modelado del canal API en SPHERE.** El metamodelo iPricing representa la
   estructura comercial del canal web, no las condiciones de capacidad del canal
   programático. Confirmar con el tutor si ACM2YAML está disponible; las
