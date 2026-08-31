@@ -182,9 +182,8 @@ era el criterio para desbloquear lo demás. Lo que queda abierto es **todo
   documentación de `pricing` se sigue generando de anotaciones `@swagger` en el
   código, mientras su `openapi/pricing.yaml` está en el repositorio sin que
   nadie lo sirva.
-- **C1 (#31) está cerrado con la mitad de `auth`.** La de `pricing` se ha
-  separado en **#72** y **reclasificada a `fase:3`**. Sus 35 tests heredados
-  siguen ahí.
+- **C1 (#31) está cerrado con la mitad de `auth`.** La de `pricing` vive en
+  **#64**, ya clasificada en `fase:3`. Sus 35 tests heredados siguen ahí.
 - **#65** ---el middleware valida el JWT por su cuenta y lee un claim que ya no
   existe--- y **#66** ---el manejador de errores no devuelve `ErrorReport` y
   filtra la traza de pila---.
@@ -218,7 +217,7 @@ Eso es peor que el rojo: da una confianza que no existe. Se mueven a
 para las dos operaciones que sí existen ---`checkout/create-session` y
 `webhooks/stripe`---. La batería queda pequeña, pero verdadera.
 
-**C1-pricing completo (#72) sí se aplaza a la fase 3.** El ciclo rojo-verde
+**La batería de contrato completa de `pricing` (#64) sí se aplaza a la fase 3.** El ciclo rojo-verde
 necesita código que corregir, y siete de las nueve operaciones del contrato no
 existen todavía. Una batería en rojo durante dos fases enteras deja de mirarse.
 
