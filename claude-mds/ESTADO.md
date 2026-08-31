@@ -161,15 +161,16 @@ porque `stripe.service.js` construye el cliente al cargar el módulo y en el
 runner no hay `.env`. Las tres cosas quedaron arregladas, más la subida de las
 acciones y el alineamiento de la toolchain a Node 22 y pnpm 11.24.0.
 
-**La memoria NO se actualizó en esta sesión**, y es lo que queda para que el
-código y el documento vuelvan a decir lo mismo. Los tres sitios están
-localizados:
+**La memoria se actualizó**, en `memoria_tex/v4`: cuatro cambios en tres
+capítulos, con `parches-memoria-sesion3.tex` recogiendo el reparto y su criterio
+---el capítulo 4 es diseño y no nombra tecnologías ni cifras de configuración;
+el 6 es implementación y sí admite mecanismos; el 8 recoge evidencia---.
 
-| Capítulo | Qué falta |
+| Capítulo | Cambio |
 |---|---|
-| 4 — Diseño del servicio | `\subsection{Ventana de revocación}` afirma que en el canal API «la revocación resulta prácticamente inmediata»: **son hasta 60 s**. Fija además la caducidad del JWT en sesenta minutos, cuando sale de `JWT_EXPIRES_IN` dentro de [5 min, 2 h]. Falta el freno inmediato ---`login` rechaza cuentas suspendidas con `403`--- y la asimetría medida: con `auth` caído, el canal web sigue pasando y el de API recibe `503` |
-| 6 — Implementación | No existe ninguna subsección de la pasarela; Kong solo aparece en la tabla de tecnologías. Ahí encajan el saneado con sus dos mecanismos y por qué el `503` se implementa con un *bypass* de caché y no devolviendo un error |
-| 8 — Validación | El cuarto nivel de prueba: las de extremo a extremo contra la pasarela, que no son de contrato ni unitarias y comprueban lo que ninguna de las dos puede ---que una cabecera de identidad enviada por el cliente no llega al backend--- |
+| 4 — Diseño del servicio | `\subsection{Ventana de revocación}` reescrita: la del canal API no es «prácticamente inmediata» sino de hasta 60 s, la vigencia del JWT pasa a ser valor por omisión y no constante, y se incorpora el freno inmediato ---`login` rechaza cuentas suspendidas--- y la asimetría medida ante la caída de `auth`. También `\subsection{Validación de credenciales}` |
+| 6 — Implementación | `\subsection{Autenticación en la pasarela y saneado de la identidad}`, nueva. Antes la pasarela solo aparecía en la tabla de tecnologías |
+| 8 — Validación | Cuarto nivel de prueba en §8.1: las de saneado de la identidad, que no son de contrato ni unitarias |
 
 ### La fase 1 NO está terminada
 
