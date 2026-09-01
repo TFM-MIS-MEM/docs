@@ -339,15 +339,24 @@ decisiones de diseño centrales del TFM.
 
 ## 2.5 Cobertura de tests actual
 
-Marco: Jest + `supertest` + `mongodb-memory-server`. 6 ficheros, ~28 casos.
+Marco: Jest + `supertest` + `mongodb-memory-server`. 6 ficheros, 35 casos.
+
+> **Corrección (sesión 4).** Este apartado decía «~28 casos» con tres recuentos
+> sin rellenar. El número exacto, tomado de la salida en JSON del ejecutor, es
+> **35 en 6 ficheros** en la fecha de esta auditoría. La suite que se retiró a
+> `tests/legacy/` en la sesión 4 tenía **37 en 7**: la diferencia es
+> `tests/securityHeaders.test.js`, con 2 casos, añadido después ---en la sesión
+> 3, al acotar la exención de CSP--- y por tanto ausente de esta foto. De ahí
+> que `ESTADO.md` hablara de 35 y el cierre de la sesión 4 hable de 37: ambas
+> cifras eran correctas en su momento.
 
 | Fichero | Casos | Cubre |
 |---|---:|---|
+| `tests/models/subscriptionRecord.test.js` | 10 | Validaciones del esquema |
 | `tests/controllers/checkout.controller.test.js` | 6 | Ruta de creación de sesión |
+| `tests/models/usageLog.test.js` | 6 | Validaciones del esquema |
 | `tests/controllers/webhook.controller.test.js` | 5 | Ruta del webhook |
-| `tests/models/subscriptionRecord.test.js` | — | Validaciones del esquema |
-| `tests/models/usageLog.test.js` | — | Validaciones del esquema |
-| `tests/models/idempotencyKey.test.js` | — | Validaciones del esquema |
+| `tests/models/idempotencyKey.test.js` | 5 | Validaciones del esquema |
 | `tests/health.test.js` | 3 | Sonda |
 
 **Sin ningún test:**

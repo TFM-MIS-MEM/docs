@@ -3,8 +3,8 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** cierre de la sesión 3 (la pasarela autentica los dos
-> canales; A1 y A4 fusionados).
+> **Última actualización:** cierre de la sesión 4 (`pricing` conforme a su
+> contrato; C2, #65 y #66 cerrados).
 
 ---
 
@@ -172,61 +172,118 @@ el 6 es implementación y sí admite mecanismos; el 8 recoge evidencia---.
 | 6 — Implementación | `\subsection{Autenticación en la pasarela y saneado de la identidad}`, nueva. Antes la pasarela solo aparecía en la tabla de tecnologías |
 | 8 — Validación | Cuarto nivel de prueba en §8.1: las de saneado de la identidad, que no son de contrato ni unitarias |
 
+**Sesión 4 — C2 en `pricing`, #65, #66 y la red de seguridad de #64.**
+Fusionada `pricing-microservice#2` con sus cinco commits sin aplastar: el orden
+---red de seguridad primero, cambios de comportamiento después--- es la
+evidencia del ciclo rojo-verde y solo existe si queda registrada.
+
+La batería de contrato se montó **antes** de tocar `src/`, y en rojo: 17 de 18
+casos, agrupados en cuatro causas ---el middleware exigía `Authorization:
+Bearer` (6), el cuerpo de error no era `ErrorReport` (6), el `200` del webhook
+llevaba cuerpo (3) y la firma inválida respondía `400` donde el contrato declara
+`401` (2)---. El delta se midió tras cada paso hasta los 24 en verde. El único
+caso que empezó en verde lo estaba **por el motivo equivocado**, que mientras no
+se cambia la causa es indistinguible de uno correcto: de ahí que la progresión
+se registrara paso a paso y no solo al final.
+
+- **C2.** `/docs` y `/openapi.json` se sirven de `openapi/pricing.yaml` con
+  `js-yaml`; `swagger-jsdoc` fuera y ni una anotación de bloque en `src/`. Lo
+  que la exclusión de las pruebas heredadas dejaba sin red ---el alcance de la
+  exención de CSP, en los dos sentidos--- lo recoge `tests/service.test.js`.
+- **#66.** El manejador devuelve `{code, message}` con un vocabulario de códigos
+  escrito en el propio fichero, porque `ErrorReport` declara `code` como cadena
+  libre y ningún test puede protegerlo. La traza de pila **no viaja en el cuerpo
+  en ningún entorno**: va al registro, y solo cuando el error no es operacional.
+- **#65.** El middleware lee `X-Account-Id`, `X-Auth-Channel` y `X-Role` y no
+  verifica ningún token; `JWT_SECRET` y `jsonwebtoken` desaparecen del servicio.
+  Las tres cabeceras son obligatorias y con valores cerrados, decisión razonada
+  en el propio fichero: por el camino legítimo esas comprobaciones son
+  inalcanzables ---la guarda única del plugin corta antes---, así que solo
+  disparan ante quien se salta la pasarela.
+
+Al dejar de morir en `401`, la batería destapó lo que el `401` tapaba, y entró
+en la misma sesión: `planId` pasa a ser el enum del contrato con la
+correspondencia a Price ID en `src/config/plans.js` ---sin valor por defecto: el
+servicio no arranca si faltan las variables, porque un precio inventado no falla
+al arrancar sino en la primera compra real---, la respuesta `201` pasa a ser el
+recurso plano `{sessionId, url}`, y `SubscriptionRecord.userId` se renombra a
+`accountId`. Eso cerró de paso **#50**, que pedía exactamente ese mapeo.
+
+**El canal de API funciona de extremo a extremo por primera vez.** Con una API
+KEY válida a través de Kong, `create-session` responde `400` con `ErrorReport`
+ante un `planId` fuera del enum, `400 PLAN_NOT_PURCHASABLE` ante el plan
+gratuito y `201` con una sesión real de Stripe contra el precio del Plan Pro. La
+salida literal de los tres quedó en el cuerpo del PR: no se verifica en la CI y
+es evidencia del capítulo 8.
+
+La cobertura **subió al retirar pruebas**: de 76,25 / 50,57 / 59,37 / 77,97 a
+76,89 / 56,25 / 66,66 / 78,31 (sentencias, ramas, funciones, líneas), con el
+trinquete fijado en 76 / 56 / 66 / 78 ---al entero inferior, para que no salte
+por dos centésimas en un refactor---. Las dos medidas se tomaron sobre árboles
+de fuentes distintos ---la base tenía `swagger-jsdoc` y no tenía `plans.js`---,
+así que la comparación es indicativa y lo que sostiene el argumento no son las
+décimas, sino qué caminos se atraviesan: 24 casos de contrato cubren más camino
+que las 37 heredadas, que eran
+en su mayoría validaciones de esquema de modelo y no atravesaban el enrutado, la
+identidad ni el manejador de errores, que es donde vive el contrato.
+
+De la sesión salieron **nueve issues nuevos, #73 a #81**, ninguno arreglado de
+paso. Seis son de `pricing` y tres tocan otros repositorios: la traza de pila
+que `auth` sigue emitiendo en desarrollo, su `overrides` de axios ---que no
+cambia nada de lo que se ejecuta, porque ese axios solo aparece como `import
+type` en un `.d.ts`--- y el caso que le falta a `identity-headers.sh`.
+
+**Los parches de memoria de esta sesión quedan pendientes**, sobre los capítulos
+6 y 8, con el material ya identificado: la implementación de referencia de cómo
+un backend consume la identidad propagada y la garantía de red frente al secreto
+compartido que se descartó, para el 6; y para el 8, el hallazgo de que una
+respuesta declarada sin `content` obliga a devolver el cuerpo vacío ---con el
+límite que eso destapa, que `toSatisfyApiSpec()` valida la respuesta y no la
+petición--- junto al argumento de cobertura.
+
 ### La fase 1 NO está terminada
 
-La cadena de identidad ---`auth`, la pasarela y el enrutado--- sí lo está, que
-era el criterio para desbloquear lo demás. Lo que queda abierto es **todo
-`pricing` salvo las rutas**:
+La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
+la sesión 4 también el grueso de `pricing`: **C2 (#32), #65 y #66 quedan
+cerrados**, y con ellos la afirmación de que lo abierto era «todo `pricing`
+salvo las rutas» deja de ser cierta.
 
-- **C2 (#32)** lleva `svc:auth` **y** `svc:pricing`, y solo se hizo `auth`. La
-  documentación de `pricing` se sigue generando de anotaciones `@swagger` en el
-  código, mientras su `openapi/pricing.yaml` está en el repositorio sin que
-  nadie lo sirva.
-- **C1 (#31) está cerrado con la mitad de `auth`.** La de `pricing` vive en
-  **#64**, ya clasificada en `fase:3`. Sus 35 tests heredados siguen ahí.
-- **#65** ---el middleware valida el JWT por su cuenta y lee un claim que ya no
-  existe--- y **#66** ---el manejador de errores no devuelve `ErrorReport` y
-  filtra la traza de pila---.
+Lo que queda no es un servicio entero, son cinco cabos sueltos. **#64 avanza
+sin cerrarse**: montado el andamiaje de `jest-openapi` y retiradas las pruebas
+heredadas ---37 casos en 7 ficheros; los 35 que este documento venía citando
+eran exactos hasta que la sesión 3 añadió `securityHeaders.test.js`, con dos
+más---, pero cubre 2 de las 9 operaciones del contrato, las únicas
+implementadas. Las otras siete y la batería completa son fase 3, y por el mismo
+motivo de siempre: el ciclo rojo-verde necesita código que corregir, y una
+batería en rojo durante dos fases deja de mirarse.
 
-### Siguiente paso: media sesión de `pricing`, y después `fr-commercial`
+Los otros cuatro son issues abiertos en la sesión, todos con `fase:1`: **#74**
+---el compose de producción de `pricing` publica el puerto de su MongoDB---;
+**#79** y **#80**, de `auth`, que salen de comparar los dos servicios una vez
+alineados ---la traza de pila que uno emite y el otro ya no, y un `overrides`
+que silencia al escáner sin cambiar nada de lo que se ejecuta---; y **#81**, del
+gateway, que cubre con una prueba la única línea de la que depende hoy que el
+canal de API llegue siempre con `X-Role`.
 
-**Primero media sesión con C2-pricing, #65, #66 y los 35 tests a
-`tests/legacy/`. Después, `fr-commercial` (fase 2).** No es cerrar la fase 1 por
-completar el marcador: cada una de esas cuatro cosas tiene una razón para ir
-antes que la fase 2, y lo que no la tiene se ha aplazado.
+Ninguno bloquea la fase 2. Se anotan aquí para que «fase 1 cerrada» no se dé por
+buena antes de tiempo.
 
-**C2 no depende de nada de `fr-commercial`.** Servir el `.yaml` es el mismo
-cambio que ya se hizo en `auth`. Y hay una razón para no dejarlo: las
-anotaciones `@swagger` **se acaban de repasar a mano en la sesión 3** al mover
-las rutas, de modo que ya no son documentación muerta, sino **una fuente de
-verdad viva y recién actualizada que contradice al contrato**. Cuanto más
-tiempo pase, más cara sale la contradicción.
+### Siguiente paso: `fr-commercial`
 
-**#65 no afecta solo a `pricing`.** Es **el único ejemplo del repositorio de
-cómo un backend consume la identidad que propaga la pasarela**, y lo hace mal:
-verifica el JWT por su cuenta en vez de leer `X-Account-Id`, lo que obliga a
-compartir `JWT_SECRET` y deja fuera al canal de API. Cuando se escriba
-`fr-commercial`, ese es el patrón que habrá delante para copiar. Si se copia,
-`fr-commercial` necesitará `JWT_SECRET` y su canal de API tampoco funcionará.
-Arreglarlo antes de la fase 2 **es fijar la implementación de referencia**, no
-cerrar la fase 1.
+Sin cambios respecto a lo previsto: la media sesión de `pricing` que precedía a
+la fase 2 está hecha, y con ella **la implementación de referencia de cómo un
+backend consume la identidad que propaga la pasarela**. Era la razón de
+adelantarla: `fr-commercial` son 27 operaciones que van a copiar ese patrón, y
+hasta la sesión 4 el único ejemplo del repositorio lo hacía mal ---verificaba el
+JWT por su cuenta, lo que obligaba a compartir el secreto de firma y dejaba
+fuera al canal de API---.
 
-**Los 35 tests heredados fijan el contrato anterior, y la CI está en verde.**
-Eso es peor que el rojo: da una confianza que no existe. Se mueven a
-`tests/legacy/` con su historia, como en `auth`, y se añaden tests de contrato
-para las dos operaciones que sí existen ---`checkout/create-session` y
-`webhooks/stripe`---. La batería queda pequeña, pero verdadera.
+**`fr-commercial`** es el grueso del trabajo y lo que sostiene la contribución:
+las unidades de consumo ponderadas, el límite de estado y la campaña de medición
+dependen de que exista. Es también lo que más riesgo tiene de no caber en el
+tiempo restante.
 
-**La batería de contrato completa de `pricing` (#64) sí se aplaza a la fase 3.** El ciclo rojo-verde
-necesita código que corregir, y siete de las nueve operaciones del contrato no
-existen todavía. Una batería en rojo durante dos fases enteras deja de mirarse.
-
-**Y después, `fr-commercial`**, que es el grueso del trabajo y lo que sostiene
-la contribución: las unidades de consumo ponderadas, el límite de estado y la
-campaña de medición dependen de que exista. Es también lo que más riesgo tiene
-de no caber en el tiempo restante.
-
-Antes de la fase 2, y esto **no puede esperar**: **decidir #68**, que afecta a
+Antes de empezarlo, y esto **no puede esperar**: **decidir #68**, que afecta a
 27 de las 47 operaciones del contrato. Decidirlo después de escribir
 `fr-commercial` obliga a repasar esas 27 una por una.
 
@@ -294,6 +351,22 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
 - **`/docs` va exento de la CSP de `helmet` en todos los servicios.** Sin ello,
   Swagger UI no puede llamar a la pasarela: la llamada muere dentro del
   navegador y no deja rastro en ningún registro del servidor.
+- **El backend confía en la pasarela, y la garantía es de red.** Se descartó un
+  secreto compartido pasarela-servicio: sería defensa en profundidad real, pero
+  crea un mecanismo fuera del contrato y devuelve a `pricing` la responsabilidad
+  que #65 concentra en la pasarela. El puerto deja de publicarse en el compose de
+  producción y en el de desarrollo queda atado a `127.0.0.1`; la garantía real es
+  el `ClusterIP` de Kubernetes, no el compose.
+- **Las cabeceras de identidad se exigen completas y con valores cerrados.** Sin
+  respaldo al JWT y sin valores por defecto, porque un valor por defecto es
+  inventar identidad. Por el camino legítimo es inalcanzable ---la guarda del
+  plugin corta antes---, así que solo actúa contra quien se salta la pasarela.
+- **La traza de pila no viaja en el cuerpo en ningún entorno.** Diverge de
+  `auth`, que la deja en `details` en desarrollo; la divergencia es deliberada y
+  su alineación es #79, no una deriva.
+- **La CI de `pricing` audita con `pnpm audit --prod`.** Audita lo que se
+  despliega. El árbol de producción no contiene axios: los avisos venían todos de
+  una dependencia fantasma de una herramienta de test.
 
 ---
 
