@@ -203,6 +203,47 @@ Difieren solo el prefijo de ruta y el envoltorio de la respuesta.
 | 🟢 | Compose incompleto | `docker-compose.yml` no propaga `JWT_SECRET`, `RESEND_API_KEY` ni `INTERNAL_API_SECRET` al contenedor: `signJwt` lanzaría `500` y el secreto interno caería al valor por defecto |
 | 🟢 | Caducidad del JWT | `jwtExpiresIn` por defecto `'1h'` = 60 min, correcto, pero no se expone `expiresIn` en la respuesta de login |
 
+> **Corrección (sesión 5).** La última fila de esta tabla dice que
+> `user-example-apikey` **no está en `.gitignore`** y que `resend-apikey.txt`,
+> `stripe-secret-key.txt` y `stripe-webhook-secret.txt` **sí** lo están. Esa
+> distinción no es una foto que haya envejecido: es un error de observación, y
+> lo era ya el día de la auditoría. El único `.gitignore` que nombra a los
+> cuatro es el de la raíz del workspace, y **la raíz del workspace no es un
+> repositorio git**: los seis repositorios tienen su raíz en
+> `repos/<nombre>`, y ninguno rastrea ese fichero ---`git log -- ../.gitignore`
+> devuelve cero commits en los seis---. Ese `.gitignore` no gobierna nada. Ni
+> excluía `user-example-apikey`, ni excluía a los otros tres: los cuatro quedan
+> fuera de todo árbol de trabajo, de modo que ninguno podía llegar a
+> committearse a ninguno de los repositorios, con `.gitignore` o sin él.
+>
+> Lo que el hallazgo sí acertaba, y se mantiene: había una **API KEY real en
+> claro en el disco**. Eso era cierto en esta fecha y siguió siéndolo.
+>
+> **Desde cuándo, sin determinar.** El `.gitignore` de la raíz nació el
+> 2026-04-21 y se modificó por última vez el **2026-08-26 a las 14:08:54**, el
+> mismo día de esta auditoría. Al no estar bajo control de versiones en ningún
+> sitio, no hay manera de saber si la línea `user-example-apikey` ya estaba
+> cuando se redactó el informe o se añadió esa misma tarde. La corrección de
+> arriba no depende de esa fecha: el reproche no es que la línea faltara, sino
+> que el fichero que la contiene no protege a nadie.
+>
+> **Que no hubiera riesgo es un accidente, no un control.** No lo había porque
+> la raíz del workspace está *fuera* de todos los árboles de trabajo, no porque
+> nada la protegiera. La protección real del proyecto es la otra, la que este
+> mismo anexo describe en su segundo punto: `auth-microservice/.env` y
+> `pricing-microservice/.env` los cubre el `.gitignore` **de su propio
+> repositorio**, verificado con `git check-ignore -q .env`, que responde
+> afirmativamente en los dos. Ese es el mecanismo que funciona.
+>
+> El de la raíz es decorativo, y solo mientras la raíz no sea un repositorio.
+> Deja de serlo en dos supuestos nada rebuscados: si el workspace pasa a estar
+> versionado ---agrupando los servicios en un monorepo, por ejemplo---, o si
+> alguien copia uno de esos cuatro ficheros dentro de `repos/<servicio>/`. En el
+> segundo caso el `.gitignore` de la raíz **no lo cubre**, porque no gobierna ese
+> árbol, y el del servicio tampoco lo nombra: el fichero quedaría rastreable
+> desde el primer `git add`. La conclusión práctica del hallazgo, por tanto, no
+> cambia; cambia el motivo por el que se sostenía.
+
 ## 1.5 Cobertura de tests actual
 
 Marco: Jest + `supertest` + `mongodb-memory-server`. 3 ficheros, 44 casos.
@@ -605,3 +646,18 @@ workspace:
   `'dev_internal_secret_key_789'` para `INTERNAL_API_SECRET`, en contra de la
   regla «Cero secretos en el código». Debería fallar al arrancar si la variable
   no está definida.
+
+> **Corrección (sesión 5).** El primer punto de este anexo repite el error
+> corregido en §1.4: el `.gitignore` de la raíz del workspace no pertenece a
+> ningún repositorio, así que ni `user-example-apikey` quedaba «sin excluir» ni
+> los otros tres estaban «excluidos» por él. Ninguno de los cuatro es
+> committeable a ninguno de los repositorios, por estar fuera de todos los
+> árboles de trabajo. El segundo punto, en cambio, es exacto y sigue siéndolo:
+> `auth-microservice/.env` y `pricing-microservice/.env` sí están cubiertos por
+> el `.gitignore` de su propio repositorio, verificado con `git check-ignore`.
+>
+> El fichero `user-example-apikey` se borró del workspace en la sesión 5. De sus
+> dos claves, la primera ya no validaba y **la segunda seguía viva**, ligada a la
+> cuenta `user@example.com`. Que la clave estuviera viva en el disco era cierto
+> en la fecha de esta auditoría y no se reescribe: es el hallazgo, y se cierra
+> en los issues, no aquí.
