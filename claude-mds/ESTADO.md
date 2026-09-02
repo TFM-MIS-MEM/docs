@@ -161,16 +161,15 @@ porque `stripe.service.js` construye el cliente al cargar el módulo y en el
 runner no hay `.env`. Las tres cosas quedaron arregladas, más la subida de las
 acciones y el alineamiento de la toolchain a Node 22 y pnpm 11.24.0.
 
-**La memoria se actualizó**, en `memoria_tex/v4`: cuatro cambios en tres
-capítulos, con `parches-memoria-sesion3.tex` recogiendo el reparto y su criterio
----el capítulo 4 es diseño y no nombra tecnologías ni cifras de configuración;
-el 6 es implementación y sí admite mecanismos; el 8 recoge evidencia---.
+**La memoria se actualizó**, en `memoria_tex/v5`: cuatro parches en tres
+capítulos, con `parches-memoria-sesion4.tex` recogiendo el reparto y el mismo
+criterio de la sesión 3.
 
 | Capítulo | Cambio |
 |---|---|
-| 4 — Diseño del servicio | `\subsection{Ventana de revocación}` reescrita: la del canal API no es «prácticamente inmediata» sino de hasta 60 s, la vigencia del JWT pasa a ser valor por omisión y no constante, y se incorpora el freno inmediato ---`login` rechaza cuentas suspendidas--- y la asimetría medida ante la caída de `auth`. También `\subsection{Validación de credenciales}` |
-| 6 — Implementación | `\subsection{Autenticación en la pasarela y saneado de la identidad}`, nueva. Antes la pasarela solo aparecía en la tabla de tecnologías |
-| 8 — Validación | Cuarto nivel de prueba en §8.1: las de saneado de la identidad, que no son de contrato ni unitarias |
+| 4 — Diseño del servicio | `\subsection{Validación de credenciales}` gana la otra mitad del saneado: qué hace con la identidad el servicio que la recibe. La acepta sin volver a verificarla ---hacerlo obligaría a compartir el secreto de firma y dejaría fuera al canal API, cuya credencial no contiene identidad alguna que verificar---, la exige completa y con valores cerrados, sin valores por omisión, y la garantía de que las comprobaciones estrictas nunca se disparan corresponde al despliegue y no al código |
+| 6 — Implementación | `\subsection{Consumo de la identidad en el microservicio de destino}`, nueva, junto a la de la pasarela. Los mecanismos, el criterio de que el cambio está completo ---que desaparezca el secreto de firma, no que se lean las cabeceras---, la exposición del puerto y el secreto compartido pasarela-servicio descartado con su motivo |
+| 8 — Validación | §8.1 gana dos evidencias más del límite de la especificación ---el vocabulario de códigos queda fuera de lo comprobable, y la comprobación se ejerce sobre la respuesta y no sobre la petición--- y el hallazgo inverso: lo que la especificación calla también obliga. Se añade `\subsection{Primera aplicación del procedimiento}` con la progresión rojo-verde, el caso verde por el motivo equivocado y el argumento de cobertura |
 
 **Sesión 4 — C2 en `pricing`, #65, #66 y la red de seguridad de #64.**
 Fusionada `pricing-microservice#2` con sus cinco commits sin aplastar: el orden
