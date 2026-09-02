@@ -211,14 +211,51 @@ forma de la respuesta:
   agotada es `403`.
 - `410 Gone` para retos de liveness caducados.
 
-> ⚠️ **La pasarela ya no cumple este criterio, y está sin decidir cómo
-> arreglarlo** (issue #68). El plugin emite `401`, `403` y `503`, y el
-> `rate-limiting` de Kong emite `429`, sobre operaciones que no los declaran: de
-> 47 operaciones, 30 no declaran `429`, 28 no declaran `403` y ninguna declara
-> `503`. Hay que decidir entre declarar un conjunto común de respuestas de
-> pasarela o documentar que el contrato describe el servicio y no lo que tiene
-> delante. **Decidir antes de escribir `fr-commercial`**, que son 27 de esas 47
-> operaciones.
+#### Qué se declara (issue #68, decidido)
+
+**Se declara lo que es una decisión, no lo que es un fallo.**
+
+- Toda operación **alcanzable a través de la pasarela** declara `429`.
+- Toda operación con `security` declara además `401`.
+- Toda operación que admite `apiKeyAuth` declara además `503` y `403`.
+- Se declara `403` también en las operaciones que pueden denegarse por plan,
+  cuota o estado del recurso, con los códigos de dominio de la lista de arriba.
+- **No** se declaran las respuestas accidentales (`500`, `502`, `504`) ni las
+  de plataforma (`404` de ruta inexistente, `413`, *preflight* de CORS).
+- Las respuestas originadas en la pasarela cumplen `ErrorReport` igual que las
+  del servicio.
+
+El `403 ACCOUNT_SUSPENDED` y el `503 AUTH_UNAVAILABLE` los emite la pasarela y
+**solo pueden darse en el canal de API**: dependen de validar la API KEY contra
+`auth`, mientras que el JWT del canal web se verifica por firma sin salir de la
+pasarela. OpenAPI no sabe atar una respuesta a un esquema de seguridad concreto,
+de modo que esa restricción se escribe en prosa dentro de la `description` de la
+respuesta. Se usan `$ref` a componentes compartidos; nunca se duplica la
+descripción por operación.
+
+Lo que determina el `429` **no es que la operación esté protegida, sino que la
+pasarela la alcance**: el limitador es global y no mira credenciales. Por eso lo
+declaran también las rutas públicas ---`register`, `login`, la recuperación de
+contraseña y el receptor de eventos de Stripe---, donde además cuenta desde la
+primera petición.
+
+`POST /v1/auth/validate-key` es la única operación fuera de la regla: no es
+alcanzable a través de la pasarela ---es ella quien la corta con un `404`--- y
+su `apiKeyAuth` es la clave *a validar*, no una credencial de acceso. El motivo
+se detalla en la `description` de la propia operación, no solo en la cabecera
+del fichero.
+
+> ⚠️ **Excepción conocida, y es la que queda abierta.** El `429` lo emite el
+> plugin `rate-limiting` de Kong con un cuerpo `{message, request_id}` **sin
+> `code`**, de modo que hoy no cumple `ErrorReport`. Se declara `ErrorReport`
+> igualmente ---es el contrato que debe cumplir--- y la divergencia se sigue en
+> el issue #82. `request_id` es un detalle de Kong y deliberadamente **no** se
+> ha metido en el esquema de los tres contratos.
+>
+> El alcance del `429` tampoco es uniforme: `space-auth` tiene `PRIORITY 1000` y
+> el limitador 910, así que en rutas protegidas el `429` solo alcanza a un
+> llamante **ya autenticado**, mientras que en las rutas públicas de `auth`
+> cuenta desde la primera petición. Issue #83.
 
 ### 7. Nomenclatura
 
