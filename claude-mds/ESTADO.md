@@ -161,15 +161,18 @@ porque `stripe.service.js` construye el cliente al cargar el módulo y en el
 runner no hay `.env`. Las tres cosas quedaron arregladas, más la subida de las
 acciones y el alineamiento de la toolchain a Node 22 y pnpm 11.24.0.
 
-**La memoria se actualizó**, en `memoria_tex/v5`: cuatro parches en tres
-capítulos, con `parches-memoria-sesion4.tex` recogiendo el reparto y el mismo
-criterio de la sesión 3.
+**La memoria se actualizó**, en `memoria_tex/v4`: cuatro cambios en tres
+capítulos, con `parches-memoria-sesion3.tex` recogiendo el reparto ---el
+capítulo 4 no nombra tecnologías, códigos de estado ni cifras de configuración;
+el 6 sí admite mecanismos y cifras; el 8 recoge evidencia---. Los dos primeros
+**corrigen texto que había pasado a ser falso**; los dos últimos incorporan
+material que la sesión produjo y la memoria no recogía.
 
 | Capítulo | Cambio |
 |---|---|
-| 4 — Diseño del servicio | `\subsection{Validación de credenciales}` gana la otra mitad del saneado: qué hace con la identidad el servicio que la recibe. La acepta sin volver a verificarla ---hacerlo obligaría a compartir el secreto de firma y dejaría fuera al canal API, cuya credencial no contiene identidad alguna que verificar---, la exige completa y con valores cerrados, sin valores por omisión, y la garantía de que las comprobaciones estrictas nunca se disparan corresponde al despliegue y no al código |
-| 6 — Implementación | `\subsection{Consumo de la identidad en el microservicio de destino}`, nueva, junto a la de la pasarela. Los mecanismos, el criterio de que el cambio está completo ---que desaparezca el secreto de firma, no que se lean las cabeceras---, la exposición del puerto y el secreto compartido pasarela-servicio descartado con su motivo |
-| 8 — Validación | §8.1 gana dos evidencias más del límite de la especificación ---el vocabulario de códigos queda fuera de lo comprobable, y la comprobación se ejerce sobre la respuesta y no sobre la petición--- y el hallazgo inverso: lo que la especificación calla también obliga. Se añade `\subsection{Primera aplicación del procedimiento}` con la progresión rojo-verde, el caso verde por el motivo equivocado y el argumento de cobertura |
+| 4 — Diseño del servicio | Dos parches, ambos correcciones. `\subsection{Validación de credenciales}` gana el comportamiento ante la indisponibilidad de la fuente de validación ---se rechaza la petición y no se admite por omisión: aceptarla sería suspender el control justo cuando no puede ejercerse--- y el requisito de saneado pasa a exigirse **incondicional** ---no supeditado a que la validación produzca un valor con el que sobrescribir--- y **universal**, alcanzando también a las rutas que no exigen credencial, porque una ruta exenta sigue conduciendo a un microservicio que confía en la identidad recibida. `\subsection{Ventana de revocación}` se reemplaza entera: fijaba la caducidad en sesenta minutos, que dejó de ser una constante, y afirmaba que en el canal de API la revocación era «prácticamente inmediata», que es falso ---está acotada por la vigencia de la caché--- y era donde se apoyaba el argumento de los sesenta minutos |
+| 6 — Implementación | `\subsection{Autenticación en la pasarela y saneado de la identidad}`, nueva y la primera de su sección, porque la cadena de identidad precede a todo lo demás y el resto del capítulo presupone que el microservicio de destino recibe una cuenta ya validada. El cometido triple de la extensión a medida: determinar qué credencial acompaña a la petición, obtener de ella la identidad y entregarla de modo que el destino pueda confiar sin volver a verificarla. La sección de protección de la disponibilidad del capítulo 4 **no** necesitó cambio: fue la implementación la que se ajustó a ella, retirando el limitador que `pricing` aplicaba por su cuenta |
+| 8 — Validación | §8.1 gana un cuarto nivel de prueba, el de **saneado de la identidad**, tras las de transición entre planes, con su párrafo de cierre. Los tres niveles anteriores se derivan de la especificación; este **no puede derivarse de ella**, y esa imposibilidad es un resultado del trabajo y no una carencia |
 
 **Sesión 4 — C2 en `pricing`, #65, #66 y la red de seguridad de #64.**
 Fusionada `pricing-microservice#2` con sus cinco commits sin aplastar: el orden
@@ -232,13 +235,143 @@ que `auth` sigue emitiendo en desarrollo, su `overrides` de axios ---que no
 cambia nada de lo que se ejecuta, porque ese axios solo aparece como `import
 type` en un `.d.ts`--- y el caso que le falta a `identity-headers.sh`.
 
-**Los parches de memoria de esta sesión quedan pendientes**, sobre los capítulos
-6 y 8, con el material ya identificado: la implementación de referencia de cómo
-un backend consume la identidad propagada y la garantía de red frente al secreto
-compartido que se descartó, para el 6; y para el 8, el hallazgo de que una
-respuesta declarada sin `content` obliga a devolver el cuerpo vacío ---con el
-límite que eso destapa, que `toSatisfyApiSpec()` valida la respuesta y no la
-petición--- junto al argumento de cobertura.
+**La memoria se actualizó**, en `memoria_tex/v5`: cuatro parches en tres
+capítulos, con `parches-memoria-sesion4.tex` recogiendo el reparto y el mismo
+criterio de la sesión 3.
+
+| Capítulo | Cambio |
+|---|---|
+| 4 — Diseño del servicio | `\subsection{Validación de credenciales}` gana la otra mitad del saneado: qué hace con la identidad el servicio que la recibe. La acepta sin volver a verificarla ---hacerlo obligaría a compartir el secreto de firma y dejaría fuera al canal API, cuya credencial no contiene identidad alguna que verificar---, la exige completa y con valores cerrados, sin valores por omisión, y la garantía de que las comprobaciones estrictas nunca se disparan corresponde al despliegue y no al código |
+| 6 — Implementación | `\subsection{Consumo de la identidad en el microservicio de destino}`, nueva, junto a la de la pasarela. Los mecanismos, el criterio de que el cambio está completo ---que desaparezca el secreto de firma, no que se lean las cabeceras---, la exposición del puerto y el secreto compartido pasarela-servicio descartado con su motivo |
+| 8 — Validación | §8.1 gana dos evidencias más del límite de la especificación ---el vocabulario de códigos queda fuera de lo comprobable, y la comprobación se ejerce sobre la respuesta y no sobre la petición--- y el hallazgo inverso: lo que la especificación calla también obliga. Se añade `\subsection{Primera aplicación del procedimiento}` con la progresión rojo-verde, el caso verde por el motivo equivocado y el argumento de cobertura |
+
+**Sesión 5 — #68, y lo que salió de verificarlo antes de decidirlo.** El objeto
+era cerrar #68, que bloqueaba `fr-commercial`: cómo se declaran las respuestas
+que emite la pasarela y no el servicio. Afectaba a 27 de las 47 operaciones del
+contrato, y decidirlo después de escribir el servicio habría obligado a
+repasarlas una a una.
+
+Antes de decidir nada se midió qué responde hoy la pasarela, caso por caso y con
+la salida literal. Es lo que más ha dado de sí la sesión:
+
+- **El `429` no cumple `ErrorReport`, y no puede cumplirlo sin trabajo en el
+  gateway.** Lo emite el plugin de límite de tasa de Kong, que construye el
+  cuerpo formateando una plantilla de nodo con dos huecos ---mensaje e
+  identificador de petición---. No hay hueco para `code`, y la plantilla es
+  global: un `code` literal se estamparía también en el `404` de ruta
+  inexistente y en los `502` de upstream. Se descartó explícitamente inyectar
+  JSON por el campo del mensaje de error, que hoy funciona porque la plantilla
+  no escapa nada, pero es una inyección y no una configuración. La vía real es
+  reescribir el cuerpo en la fase de respuesta, un día de trabajo.
+- **El orden de prioridades deja fuera del límite de tasa a quien no trae
+  credencial.** El plugin de autenticación corta antes de que el limitador
+  cuente. Medido: con la cuota global ya agotada, 25 claves de API aleatorias
+  distintas contra una ruta protegida produjeron **cero `429`**, y 24 de ellas
+  llegaron hasta `auth` ---cada clave tiene un resumen distinto, luego una
+  entrada de caché distinta, de modo que la caché negativa no absorbe nada---.
+  Una de las 25 obtuvo `503`: `auth` no respondió a tiempo con solo 25
+  peticiones rápidas.
+- **La pasarela no evalúa el plan en ningún momento.** No hay una línea que lo
+  consulte, ni podría haberla sin cambiar el diseño: la validación de la clave
+  devuelve veredicto, cuenta, estado y rol, y ninguno de esos campos dice nada
+  del plan. La disponibilidad del canal de API pasa por tanto a evaluarse en
+  `fr-commercial`, junto a los modelos y los límites, que es donde el dato ya
+  está cargado. Arrastra una corrección de `CLAUDE.md`, que la situaba en la
+  pasarela.
+- **El único `403` que emite la pasarela es cuenta suspendida.** Se leyó el
+  plugin entero en vez de suponerlo: de sus doce salidas de error, once son
+  `401` o `503` y la única `403` es la cuenta suspendida, solo en el canal de
+  API. Se capturó en vivo contra una cuenta desechable, y de paso se midió la
+  ventana de revocación de ese canal: 41 segundos pasando después de suspender,
+  coherentes con los 60 de vigencia del veredicto cacheado.
+
+**El criterio que se fija es que se declara lo que es una decisión, no lo que es
+un fallo.** Toda operación alcanzable a través de la pasarela declara `429`;
+toda operación con `security` declara además `401`; toda operación que admite
+la credencial del canal de API declara además `503` y `403`. No se declaran las
+respuestas accidentales ni las de plataforma.
+
+El hallazgo que corrigió la regla mientras se escribía es que **el criterio del
+`429` es la alcanzabilidad, no la protección de la operación**: el limitador es
+global y no mira credenciales, así que también lo declaran las rutas públicas
+---registro, inicio de sesión, recuperación de contraseña y receptor de eventos
+de pago---, donde además cuenta desde la primera petición. La primera redacción
+lo ataba a tener `security`, y habría dejado esas cuatro sin declararlo.
+
+**71 respuestas añadidas sobre 43 de las 47 operaciones**, verificado
+programáticamente recorriendo los tres contratos: 46 operaciones son alcanzables
+por la pasarela y las 46 declaran `429`, sin un solo incumplimiento. Las cuatro
+restantes ya cumplían. La validación de clave es la única excepción, y es
+deliberada: no es alcanzable a través de la pasarela ---es ella quien la corta
+con un `404`--- y su credencial de API es la clave *a validar* y no una
+credencial de acceso, de modo que un `503` por indisponibilidad de `auth` no
+puede declararlo el propio `auth`, y una cuenta suspendida no es un error ahí
+sino un `200` con el estado dentro. El motivo quedó escrito en la descripción de
+la propia operación, no solo en la cabecera del fichero.
+
+**Supresión de la cuenta.** Verificar el `403` destapó que una cuenta suspendida
+**no puede borrarse a sí misma**: la operación de borrado comprueba el estado
+antes de borrar, la única reactivación exige `ADMIN` y no hay vía de crear el
+primero, así que una sola autosuspensión ---ejecutable por accidente--- deja la
+cuenta y sus datos atrapados. La regla que se fija es que **la suspensión
+restringe el uso del servicio, nunca el ejercicio de derechos sobre los datos
+propios**: el borrado queda del lado de los derechos, alcanza a galerías,
+identidades, rostros, vectores y puntos de notificación igual que el de una
+cuenta activa, y conserva la confirmación por contraseña.
+
+A cambio, el borrado de una cuenta **sancionada** deja un registro mínimo
+---resumen del correo con sal fija de despliegue, fecha y código de motivo, y
+nada más---, cuyo único fin es impedir que ese correo vuelva a registrarse. Es
+resumen y no cifrado por la misma distinción que separa la credencial, que solo
+se verifica, del secreto de firma de los avisos salientes, que hay que recuperar
+en claro. Queda escrito que es un badén y no un muro ---se esquiva con otro
+correo, y la prevención real en un servicio de pago pasa por el medio de pago---
+y que el alta con un correo de la lista debe responder **exactamente igual** que
+con uno ya registrado, o el registro se convierte en un oráculo de quién ha sido
+sancionado.
+
+Nada de eso es aplicable mientras el estado suspendido signifique dos cosas: la
+pausa que el titular se aplica y la sanción que le aplica la plataforma escriben
+hoy el mismo valor. Se separan con un campo aparte y no ampliando el conjunto de
+estados ---son dos ejes distintos, y ampliarlo tocaría un componente compartido
+con un dato que la pasarela no necesita---. El invariante que los ata es que el
+campo se limpia al reactivar, y de ahí se sigue que el registro se crea si y
+solo si la cuenta está sancionada **en el momento del borrado**: a quien la
+plataforma readmitió, su borrado posterior no le deja veto.
+
+**`fr-commercial-microservice` existe.** Creado desde `python-template`, privado
+como sus hermanos, con `openapi/fr-commercial.yaml` ya versionado dentro y el
+enlace simbólico desde la raíz del workspace, igual que los otros dos. El
+contrato llevaba viviendo en un directorio que no es repositorio, de modo que la
+fuente de verdad de 27 de las 47 operaciones no tenía historia; nace con ella y
+no tendrá que mudarse después. Como ese diff ya no se recupera, el primer commit
+lo describe entero. **El servicio será Python** ---FastAPI---, mientras `auth` y
+`pricing` son Node: es la primera vez que el proyecto sostiene dos cadenas de
+herramientas a la vez, y eso tiene consecuencias en las pruebas.
+
+Los commits de la sesión: `node-template` **f71398b** y **1183495**;
+`python-template` **740b2dc** y **5543930**; `fr-commercial-microservice`
+**f37c69e** y **d414c5c**; `auth-microservice` **4612dac**;
+`pricing-microservice` **cbf9371**; `docs` **30c85ce** y **52ed3c5**. El de
+`auth` conviene mirarlo dos veces: se escribió en una rama de trabajo por
+inercia, y al llevarlo a `main` con un *cherry-pick* cambió de identificador
+---era `150100f`--- y la rama `fase1/A4` se borró, local y remota, después de
+comprobar que el contenido de ambas era idéntico.
+
+**#68 queda cerrado.** De la sesión salieron **seis issues nuevos, #82 a #87**,
+ninguno arreglado de paso.
+
+**La memoria se actualizó**, en `memoria_tex/v6`: cinco parches en tres
+capítulos, con `parches-memoria-sesion5.tex` recogiendo el reparto y el mismo
+criterio de las sesiones 3 y 4. Uno de los cinco no añade material sino que
+**corrige** una afirmación falsa ya publicada, y por eso el fichero avisa de que
+conviene aplicarlo aunque se descarte todo lo demás.
+
+| Capítulo | Cambio |
+|---|---|
+| 4 — Diseño del servicio | Dos parches. `\paragraph` nuevo en §4.3 con el criterio de qué declara un contrato ---la frontera entre la decisión y el fallo, y por qué el `429` se ata a la alcanzabilidad y no a que la operación esté protegida---. Y `\section{Ciclo de vida de la cuenta y supresión de los datos}`, nueva, con la regla de que la suspensión restringe el uso y nunca el ejercicio de derechos, el registro mínimo y la separación entre pausa y sanción. Este segundo parche lleva aviso propio: contiene afirmaciones de alcance jurídico y hay que contrastarlo con el tutor |
+| 6 — Implementación | Dos parches. El primero es una **corrección**: §6.3.1 afirmaba que la protección frente al envío masivo de credenciales inválidas corresponde al límite de tasa, y es falso ---la medición de esta sesión lo desmiente---; se sustituye por lo medido y por el diseño de los dos limitadores. El segundo es `\subsection{Registro de supresión}`, con la estructura deliberadamente pobre del registro y el argumento de por qué es resumen y no cifrado |
+| 8 — Validación | §8.1 gana la divergencia del `429` como evidencia de un límite que **no se corrige desde el documento**: la respuesta la emite un componente que el contrato no gobierna, de modo que declarar el esquema correcto no basta para que se cumpla, y la conformidad pasa a depender de una decisión de despliegue |
 
 ### La fase 1 NO está terminada
 
@@ -247,8 +380,8 @@ la sesión 4 también el grueso de `pricing`: **C2 (#32), #65 y #66 quedan
 cerrados**, y con ellos la afirmación de que lo abierto era «todo `pricing`
 salvo las rutas» deja de ser cierta.
 
-Lo que queda no es un servicio entero, son cinco cabos sueltos. **#64 avanza
-sin cerrarse**: montado el andamiaje de `jest-openapi` y retiradas las pruebas
+Lo que queda no es un servicio entero, son cabos sueltos. **#64 avanza sin
+cerrarse**: montado el andamiaje de `jest-openapi` y retiradas las pruebas
 heredadas ---37 casos en 7 ficheros; los 35 que este documento venía citando
 eran exactos hasta que la sesión 3 añadió `securityHeaders.test.js`, con dos
 más---, pero cubre 2 de las 9 operaciones del contrato, las únicas
@@ -256,16 +389,40 @@ implementadas. Las otras siete y la batería completa son fase 3, y por el mismo
 motivo de siempre: el ciclo rojo-verde necesita código que corregir, y una
 batería en rojo durante dos fases deja de mirarse.
 
-Los otros cuatro son issues abiertos en la sesión, todos con `fase:1`: **#74**
----el compose de producción de `pricing` publica el puerto de su MongoDB---;
-**#79** y **#80**, de `auth`, que salen de comparar los dos servicios una vez
-alineados ---la traza de pila que uno emite y el otro ya no, y un `overrides`
-que silencia al escáner sin cambiar nada de lo que se ejecuta---; y **#81**, del
-gateway, que cubre con una prueba la única línea de la que depende hoy que el
-canal de API llegue siempre con `X-Role`.
+**#79 es el bloqueante.** Es la traza de pila que `auth` sigue emitiendo dentro
+del cuerpo de sus errores, y la sesión 5 la agravó al medirla: sale también en
+los `401` ---en cuatro variantes, incluida la del inicio de sesión fallido, que
+cualquiera puede repetir sin credencial--- y en los `404`, atraviesa la pasarela
+sin filtrarse y publica de paso las versiones exactas de las dependencias, que
+la disposición de pnpm codifica en la ruta. Es además lo próximo que tocará ese
+repositorio.
 
-Ninguno bloquea la fase 2. Se anotan aquí para que «fase 1 cerrada» no se dé por
-buena antes de tiempo.
+**Después de #79, el siguiente es #83**, y no forma parte del montón que pasa a
+fase 2. Es el vector de amplificación medido en la sesión 5: el orden de
+prioridades de la pasarela deja fuera del límite de tasa a quien no trae
+credencial, de modo que una inundación con claves inventadas no encuentra freno
+alguno y cada clave distinta se convierte en una consulta a `auth`. No es una
+deuda de estilo sino la desmentida de una protección que la memoria daba por
+existente ---por eso arrastró la corrección del capítulo 6 y de la entrada de
+«Decisiones tomadas en conversación»---, y mientras siga abierta el argumento de
+disponibilidad del canal de API se sostiene sobre algo que no está.
+
+El resto **pasa a la fase 2 de forma deliberada, no por olvido**: **#74**, el
+compose de producción de `pricing` que publica el puerto de su MongoDB; **#81**,
+la prueba que le falta a `identity-headers.sh` para cubrir la única línea de la
+que depende hoy que el canal de API llegue siempre con `X-Role`; y **#85** con
+su dependencia **#86**, la supresión de la cuenta y la separación entre pausa y
+sanción. Ninguno bloquea `fr-commercial`, y #85 no puede implementarse antes que
+#86.
+
+Llevan también `fase:1` y siguen abiertos **#80** ---el `overrides` de axios
+que silencia al escáner sin cambiar nada de lo que se ejecuta--- y **#63**, que
+este documento sigue por separado en «Pendiente de decidir». Conviene decidir si
+se reetiquetan o se suman a las listas de arriba: mientras tanto, `gh issue list
+--label fase:1` y este párrafo no dicen lo mismo, que es justo el desajuste que
+la convención de no duplicar la planificación quiere evitar.
+
+Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
 ### Siguiente paso: `fr-commercial`
 
@@ -282,18 +439,35 @@ las unidades de consumo ponderadas, el límite de estado y la campaña de medici
 dependen de que exista. Es también lo que más riesgo tiene de no caber en el
 tiempo restante.
 
-Antes de empezarlo, y esto **no puede esperar**: **decidir #68**, que afecta a
-27 de las 47 operaciones del contrato. Decidirlo después de escribir
-`fr-commercial` obliga a repasar esas 27 una por una.
+**#68 ya está decidido y aplicado**, que era lo que no podía esperar: las 27
+operaciones del contrato declaran ya las respuestas de pasarela, de modo que
+escribirlas no obliga a repasarlas después.
 
-Otras dos cosas para cuando llegue:
+Quedan dos decisiones **antes de arrancar**, ambas consecuencia de que
+`fr-commercial` sea el primer servicio en Python:
+
+- **Cómo se traduce a Python la implementación de referencia del consumo de
+  identidad.** El patrón está fijado y probado, pero en Express: middleware que
+  lee las tres cabeceras, las exige completas y con valores cerrados, y no
+  verifica ningún token. El equivalente en FastAPI ---dependencia, *middleware*
+  o ambos--- y dónde vive el rechazo hay que decidirlo, porque son 27
+  operaciones que van a heredar la decisión.
+- **Con qué herramienta se hacen las pruebas de contrato.** `jest-openapi` no
+  sirve: es de Node. Hay que elegir el equivalente en Python y comprobar que
+  sostiene el argumento del capítulo 8, que descansa en poder afirmar que una
+  respuesta satisface la especificación. La alternativa que el propio contrato
+  ya prevé ---comparar el `/openapi.json` que genera FastAPI contra el `.yaml`
+  canónico--- cubre la forma, no las respuestas concretas, así que probablemente
+  hagan falta las dos cosas.
+
+Otras dos para cuando llegue:
 
 - `fr-commercial` recibe `X-Account-Id` ya validado y **no modela la entidad
   Account**. El bloque de Kong está comentado en `kong.yml`, con el plugin ya
   configurado, y la ruta acordada es `/v1/fr/commercial`.
-- `openapi/fr-commercial.yaml` es el único contrato que no vive dentro del
-  repositorio de su servicio, porque ese repositorio no existe aún. Al crearlo,
-  se mueve allí y se deja el enlace simbólico, como los otros dos.
+- ~~`openapi/fr-commercial.yaml` no vive dentro del repositorio de su
+  servicio.~~ **Hecho en la sesión 5.** El repositorio existe, el contrato está
+  versionado dentro y la raíz conserva el enlace simbólico, como los otros dos.
 
 ---
 
@@ -340,8 +514,21 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
   veredicto rancio. Esa rama está armada a 30 s por omisión, así que servir el
   veredicto viejo habría sido el comportamiento por defecto y no una decisión.
 - **La caché negativa es optimización de latencia, no un control de
-  seguridad.** Se etiqueta así a propósito: la inundación con claves inventadas
-  la cubre el límite de peticiones (I6), no un TTL.
+  seguridad.** La primera mitad se mantiene; la segunda **era falsa y se
+  corrige**. Se venía diciendo que la inundación con claves inventadas la cubría
+  el límite de peticiones, y la sesión 5 lo desmintió midiéndolo: el plugin de
+  autenticación tiene más prioridad que el limitador, así que en rutas
+  protegidas corta antes de que este cuente, y con la cuota global ya agotada 25
+  claves aleatorias distintas dieron **cero `429`** y 24 llegaron hasta `auth`.
+  Cada clave tiene un resumen distinto y por tanto una entrada de caché
+  distinta, de modo que la caché negativa tampoco absorbe nada. La protección
+  real exige **dos limitadores**: uno amplio por IP **delante** de la
+  autenticación, que corta la inundación y protege a `auth`, y otro por cuenta
+  **detrás**, sobre la cabecera `X-Account-Id` que la pasarela ya escribe, que
+  es el que implementa las tasas por plan y hará falta igualmente. Bajar solo
+  la prioridad frenaría una IP y no muchas, y cambiaría la superficie de error
+  de todas las rutas protegidas. Se sigue en #83, y la misma corrección se ha
+  aplicado al capítulo 6 de la memoria.
 - **`X-API-Key` no va en las cabeceras permitidas del CORS.** El canal de API es
   máquina a máquina; el caso del navegador son los tokens de enrolamiento. Hay
   un test que lo fija para que revertirlo sea una decisión y no un descuido.
