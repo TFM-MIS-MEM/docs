@@ -3,8 +3,8 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** cierre de la sesión 4 (`pricing` conforme a su
-> contrato; C2, #65 y #66 cerrados).
+> **Última actualización:** cierre de la sesión 6 (#79 y #90 cerrados; el
+> paso de auditoría de `auth`, en verde y significativo).
 
 ---
 
@@ -103,6 +103,20 @@ perder la visión de conjunto.
 **Alcance acotado por issue.** El agente trabaja sobre un issue y no propone
 cambios en otros servicios. El desbordamiento de alcance fue lo que produjo el
 desajuste anterior entre GitHub y la documentación.
+
+**No se fusiona nada con el check en rojo**, aunque el rojo sea preexistente y
+esté explicado en el cuerpo del PR. Si el rojo no lo causa el cambio: rama
+aparte desde `main`, arreglo, fusión, y después traer `main` a la rama. Fusionar
+en rojo no se defiende por bien documentado que esté.
+
+**No se aceptan pruebas intermitentes.** O se arreglan para ser deterministas, o
+se retiran asumiendo la pérdida de cobertura. «Es preexistente» no crea una
+tercera opción: una prueba que falla a veces no es fuente de verdad.
+
+Las dos se aplicaron en la sesión 6 y son la razón de que hicieran falta tres PR
+en `auth-microservice` ---#2, #3 y #4--- donde se esperaba uno: el rojo de la CI
+y el no determinismo de la suite eran preexistentes, y ninguno de los dos podía
+entrar en el PR del issue que se venía a cerrar.
 
 ---
 
@@ -373,6 +387,99 @@ conviene aplicarlo aunque se descarte todo lo demás.
 | 6 — Implementación | Dos parches. El primero es una **corrección**: §6.3.1 afirmaba que la protección frente al envío masivo de credenciales inválidas corresponde al límite de tasa, y es falso ---la medición de esta sesión lo desmiente---; se sustituye por lo medido y por el diseño de los dos limitadores. El segundo es `\subsection{Registro de supresión}`, con la estructura deliberadamente pobre del registro y el argumento de por qué es resumen y no cifrado |
 | 8 — Validación | §8.1 gana la divergencia del `429` como evidencia de un límite que **no se corrige desde el documento**: la respuesta la emite un componente que el contrato no gobierna, de modo que declarar el esquema correcto no basta para que se cumpla, y la conformidad pasa a depender de una decisión de despliegue |
 
+**Sesión 6 — #79 y #90, más el guardián de la CI.** El objeto era #79, el
+bloqueante: la traza de pila en el cuerpo de los errores de `auth`. Se cerró, y
+por el camino salieron dos cosas que impedían darlo por terminado, cada una en
+su PR.
+
+- **#79 (`auth-microservice#2`).** El manejador devuelve `ErrorReport
+  {code, message}` y no la traza, en todo entorno; es la implementación de
+  `pricing`, con el vocabulario de códigos de dominio como única divergencia.
+  Las 34 pruebas nuevas se escribieron **antes** y quedaron en rojo ---8 de 34,
+  siete por la traza en el cuerpo y una por la traza ausente del registro---, en
+  un commit propio y con `--no-verify`, porque el hook rechaza un commit rojo.
+  Ese orden es la evidencia del ciclo y solo existe si queda registrada.
+  Verificado con `curl` contra el servicio y a través de Kong para `400`, `401`
+  del inicio de sesión fallido y `404`: el cuerpo pasa de 310 bytes con 223 de
+  traza a 60 sin ella, y la respuesta llegaba idéntica por los dos caminos.
+  **El manejador estaba mal por partida doble y en sentidos opuestos**: `main`
+  no registraba la traza en ninguna parte, de modo que en producción se perdía y
+  en desarrollo salía solo al cliente. Las dos mitades se corrigen.
+- **El guardián de la CI (`auth-microservice#3`).** El paso de auditoría llevaba
+  en rojo permanente desde el 02/09 por `browserslist`, transitiva de `jest`.
+  Pasa a `pnpm audit --prod` ---se audita lo que se despliega--- con reintento
+  que distingue el registro caído del aviso real. Al quitar el ruido aparecieron
+  **dos vulnerabilidades moderadas de `qs`**, que `express` usa para parsear la
+  cadena de consulta en cada petición: `qs@6.16.0` entra por `overrides` con
+  techo `<7`, comprobado con 39 casos de parseo sin una sola diferencia.
+- **#90 (`auth-microservice#4`).** La suite era no determinista, ~1 vuelta de
+  cada 30. La causa no estaba en el código ni en la lógica de las pruebas, sino
+  en el andamiaje: `supertest` levantaba un servidor por petición ---399 por
+  vuelta--- y alguna aterrizaba en un puerto reciclado de otro proceso. Un
+  servidor por fichero lo elimina, y de paso las tres pruebas de ráfaga bajan de
+  ~290 ms a ~62. Verificado con 105 vueltas sin fallos, y otras 40 sobre la rama
+  de #79 ya fusionada con `main`.
+
+La suite pasa de **69 a 103 pruebas** en 14 suites, y la cobertura de
+87,13 / 69,67 / 85,71 / 87,50 a **88 / 75,49 / 87,30 / 88,41**. El trinquete
+queda en **87 / 75 / 87 / 88**, y el de sentencias baja de 88 a 87 a propósito:
+la medida era 88,00 **exacto**, de modo que fijarlo en 88 lo dejaba clavado
+sobre la medición y sin margen ninguno, que es justo lo que la convención del
+entero inferior quiere evitar. Cuando la medida ya cae en un entero, el inferior
+es el anterior.
+
+De la sesión salen **cinco issues nuevos, #88 a #92**, ninguno arreglado de
+paso. Dos de ellos no son tareas sino **límites del método**, y por eso se
+anotan aquí y no solo en GitHub:
+
+- **#88.** `ErrorReport` no declara `additionalProperties: false`, y su `details`
+  declara `additionalProperties: true`. Un cuerpo con la traza dentro de
+  `details` **cumplía la especificación**, de modo que `toSatisfyApiSpec()` no
+  podía rechazarlo: la fuga de #79 convivió con 69 pruebas en verde, y no por
+  descuido de la batería.
+- **#89.** El mismo argumento sobre el mensaje: un `400` cuyo texto dice
+  «Internal server error» satisface el esquema, porque `ErrorReport` solo exige
+  dos cadenas y no puede atar el mensaje al estado.
+
+Los dos son la cara complementaria de la entrada de «Decisiones tomadas en
+conversación» sobre las tres categorías de test. Allí el argumento es que la
+especificación **no llega** a ciertas reglas, y por eso existe `unit/`. Aquí es
+que, donde sí llega, **comprueba que no falta nada de lo declarado y no que no
+sobre nada**: la conformidad automática verifica la forma, no la coherencia. Lo
+que el esquema no puede prohibir hay que escribirlo como prueba, y eso es lo que
+hace `tests/contract/error-report.test.js` al comprobar a mano que no sobra
+ningún campo. Se suma al `429` de la pasarela (#82) como tercer caso de la misma
+familia.
+
+`pricing` queda avisado en **#91**: tiene el mismo `qs` vulnerable y su CI dice
+verde solo porque no se ha vuelto a ejecutar desde antes de que se publicaran
+los avisos.
+
+**Material para la memoria**, que no es estado del proyecto:
+
+- **Capítulos 6 y 8.** El arreglo de #79 y su evidencia de `curl`, directa y a
+  través de la pasarela, con el antes y el después.
+- **La doble mitad del manejador**: la traza salía al cliente y no al registro,
+  que es el mismo error al revés. Interesa como ejemplo de defecto que se
+  compensa en apariencia y por eso convive con una batería en verde.
+- **Tres lecciones sobre guardianes**, las tres medidas en esta sesión: el que
+  lleva tanto tiempo en rojo que **deja de leerse** ---y el aviso de `qs` entró
+  en un informe que ya nadie miraba---, el que **no se ejecuta** ---la CI de
+  `pricing`, verde por caducidad---, y el que **pasa en verde porque la
+  preparación se tragó la anomalía**. Este último es el más difícil de ver: el
+  fallo visible fue una respuesta ajena que rompió cuatro pruebas, pero el
+  riesgo real era la que no rompía ninguna.
+- **Sobre el método, y va a §8.1**: con 40 vueltas por rama no hay potencia
+  estadística para distinguir una tasa del 2,5 % de una del 7,5 %. El A/B no se
+  resolvió por el p-valor, sino por identificar el mecanismo y por que el mismo
+  síntoma apareciera en un fichero que el PR no tocaba. En no determinismo la
+  medición acota; lo que concluye es el mecanismo.
+
+**Apunte operativo, conviene mirarlo antes de la fase 2.** El script
+`test:coverage` añade `--detectOpenHandles` y triplica el tiempo de la suite: 21
+s frente a 7. Para tandas de repetición, `pnpm exec jest --coverage`. Con suites
+mayores esto va a doler.
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -389,15 +496,11 @@ implementadas. Las otras siete y la batería completa son fase 3, y por el mismo
 motivo de siempre: el ciclo rojo-verde necesita código que corregir, y una
 batería en rojo durante dos fases deja de mirarse.
 
-**#79 es el bloqueante.** Es la traza de pila que `auth` sigue emitiendo dentro
-del cuerpo de sus errores, y la sesión 5 la agravó al medirla: sale también en
-los `401` ---en cuatro variantes, incluida la del inicio de sesión fallido, que
-cualquiera puede repetir sin credencial--- y en los `404`, atraviesa la pasarela
-sin filtrarse y publica de paso las versiones exactas de las dependencias, que
-la disposición de pnpm codifica en la ruta. Es además lo próximo que tocará ese
-repositorio.
+~~**#79 es el bloqueante.**~~ **Cerrado en la sesión 6**, junto con #90, que
+salió de verificarlo. Con ellos, el repositorio de `auth` queda además con la CI
+en verde de forma determinista, que era la otra mitad del criterio.
 
-**Después de #79, el siguiente es #83**, y no forma parte del montón que pasa a
+**El bloqueante pasa a ser #83**, y no forma parte del montón que pasa a
 fase 2. Es el vector de amplificación medido en la sesión 5: el orden de
 prioridades de la pasarela deja fuera del límite de tasa a quien no trae
 credencial, de modo que una inundación con claves inventadas no encuentra freno
@@ -415,12 +518,15 @@ su dependencia **#86**, la supresión de la cuenta y la separación entre pausa 
 sanción. Ninguno bloquea `fr-commercial`, y #85 no puede implementarse antes que
 #86.
 
-Llevan también `fase:1` y siguen abiertos **#80** ---el `overrides` de axios
-que silencia al escáner sin cambiar nada de lo que se ejecuta--- y **#63**, que
-este documento sigue por separado en «Pendiente de decidir». Conviene decidir si
-se reetiquetan o se suman a las listas de arriba: mientras tanto, `gh issue list
---label fase:1` y este párrafo no dicen lo mismo, que es justo el desajuste que
-la convención de no duplicar la planificación quiere evitar.
+Lleva también `fase:1` y sigue abierto **#63**, que este documento sigue por
+separado en «Pendiente de decidir». Es ya el único que produce el desajuste
+entre `gh issue list --label fase:1` y este párrafo: **#80 dejó de contar en la
+sesión 6**, al comprobarse que su premisa era falsa: el `overrides` de axios no
+silencia al escáner, **fuerza** la versión parcheada. Medido sobre `main`,
+retirarlo devuelve 23 avisos de axios al árbol de desarrollo ---25 en total, con
+los dos de `browserslist`--- a cambio de nada, porque `--prod` ya los deja fuera
+de alcance. Queda abierto con esa corrección escrita en su comentario, propuesto
+para cerrarse como improcedente.
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
@@ -547,12 +653,18 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
   respaldo al JWT y sin valores por defecto, porque un valor por defecto es
   inventar identidad. Por el camino legítimo es inalcanzable ---la guarda del
   plugin corta antes---, así que solo actúa contra quien se salta la pasarela.
-- **La traza de pila no viaja en el cuerpo en ningún entorno.** Diverge de
-  `auth`, que la deja en `details` en desarrollo; la divergencia es deliberada y
-  su alineación es #79, no una deriva.
-- **La CI de `pricing` audita con `pnpm audit --prod`.** Audita lo que se
-  despliega. El árbol de producción no contiene axios: los avisos venían todos de
-  una dependencia fantasma de una herramienta de test.
+- **La traza de pila no viaja en el cuerpo en ningún entorno.** Desde la sesión
+  6 rige en `auth` y en `pricing` por igual: la divergencia que este documento
+  registraba ---`auth` la dejaba en `details` en desarrollo, «cuya alineación es
+  #79»--- **ya no existe**. Va al registro, y solo cuando el error no es
+  operacional; un error operacional es un camino previsto del contrato, no un
+  fallo que haya que depurar.
+- **Las CI auditan con `pnpm audit --prod`.** Auditan lo que se despliega. En
+  `pricing` bastó con eso: los avisos venían todos de una dependencia fantasma de
+  una herramienta de test. En `auth` **no bastó**, y la diferencia importa: al
+  quitar el ruido quedó a la vista `qs`, que sí se ejecuta en producción, de modo
+  que hizo falta además forzar la versión parcheada. Un `--prod` que deja el paso
+  en rojo no es un guardián en verde, es un guardián que sigue sin leerse.
 
 ---
 
