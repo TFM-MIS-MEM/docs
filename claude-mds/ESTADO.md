@@ -455,7 +455,9 @@ familia.
 verde solo porque no se ha vuelto a ejecutar desde antes de que se publicaran
 los avisos.
 
-**Material para la memoria**, que no es estado del proyecto:
+**La memoria se actualizó**, en `memoria_tex/v7`: los parches de
+`parches-memoria-sesion6.tex` están aplicados. Se listan aquí por lo que
+aportan, no como pendiente:
 
 - **Capítulos 6 y 8.** El arreglo de #79 y su evidencia de `curl`, directa y a
   través de la pasarela, con el antes y el después.
@@ -589,6 +591,20 @@ multiplica--- y la ventana fija, que admite una ráfaga del doble en el borde.
 
 Ninguno de los dos se cambió aquí, por acuerdo explícito: este PR construye el
 sustrato y no la segmentación por plan.
+
+**La memoria se actualizó**, en `memoria_tex/v8`: siete parches en tres
+capítulos, con `parches-memoria-sesion7.tex` recogiendo el reparto y el mismo
+criterio de las sesiones 3 a 5. **Dos de los siete son correcciones** de texto ya
+publicado, y uno de ellos ---la frase de §6.3.1 que daba la implementación por
+pendiente--- lo vuelve falso la propia fusión de esta sesión: es la tercera vez
+que ese párrafo se queda desfasado. Un séptimo parche documenta un defecto
+**abierto**, con el precedente de la divergencia del `429`.
+
+| Capítulo | Cambio |
+|---|---|
+| 4 — Diseño del servicio | `\subsection{Protección de la disponibilidad}` gana el diseño de **dos límites con sujetos distintos** ---uno por dirección de origen antes de la validación, cuyo cometido es contener el abuso y proteger al servicio que valida; otro por cuenta después, que es el que aplica las tasas publicadas--- y la consecuencia que se asume de forma deliberada: una petición sin credencial desde un origen con la cuota agotada recibe `429` y no `401`. La subsección gana etiqueta propia, porque hasta ahora el capítulo 6 enunciaba ese diseño por no tener adónde remitir |
+| 6 — Implementación | Una **corrección** y material nuevo, ambos en §6.3.1. La corrección retira «su implementación queda como trabajo pendiente» y sustituye el enunciado del diseño por la remisión al capítulo 4, que es donde toca por reparto. Lo nuevo: la desviación de mecanismo y por qué era forzosa ---prioridad fija y única, y dos configuraciones del mismo mecanismo no se acumulan---, el reparto elegido y sus dos razones, que el límite por cuenta **no admite respaldo** y falla en vez de contar por origen, las cifras y su contradicción estructural con las tasas publicadas ---un límite anterior a la validación no puede conocer el plan porque todavía no sabe quién llama---, y que el almacenamiento es local por nodo y la ventana fija |
+| 8 — Validación | Cuatro parches. Una **tercera aplicación del procedimiento**, cuyo objeto no es una discrepancia con la especificación sino una propiedad que la memoria afirmaba y la implementación no tenía, con el antes y el después, el diseño del instrumento de agotamiento y la lección de que **una medición heredada no es línea de partida hasta reproducirla**. `\subsection{Un defecto que no reside en ningún componente}`, nueva, con los dos juegos de cabeceras de las rutas públicas: una propiedad que no falta en ninguno de los dos servicios y falta en su composición, y que **ninguno de los dos puede corregir por su cuenta**. En §8.4, la **corrección** de «tres formas» a «cuatro» de guardián que deja de controlar sin dejar de existir, con la cuarta ---la comprobación que no puede fallar--- y sus dos manifestaciones; la acotación de validez externa a un nodo y un origen; y la advertencia de que cuando la medición y su instrumento comparten intérprete, el instrumento entra en el sistema medido |
 
 ### La fase 1 NO está terminada
 
