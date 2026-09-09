@@ -751,11 +751,17 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
   de eliminar la identidad en cascada. Un `DELETE` sobre un subrecurso no debe
   destruir su recurso padre, y el caso de uso habitual —sustituir la única
   fotografía— perdería el `identityId` y el `externalId`.
-- **Tres categorías de test con frontera nítida:** `contract/` verifica lo que
-  la especificación puede expresar; `unit/` verifica reglas que ninguna
-  especificación puede expresar (claims del JWT, vigencia); `legacy/` documenta
-  el comportamiento anterior. Que existan las dos primeras **es** el argumento
-  de que OpenAPI no basta como fuente única.
+- **Tres categorías de test con frontera nítida, en `auth` y en `pricing`:**
+  `contract/` verifica lo que la especificación puede expresar; `unit/` verifica
+  reglas que ninguna especificación puede expresar (claims del JWT, vigencia);
+  `legacy/` documenta el comportamiento anterior. Que existan las dos primeras
+  **es** el argumento de que OpenAPI no basta como fuente única.
+
+  **La taxonomía es de esos dos servicios, no del proyecto.** Las suites de la
+  pasarela son de otra naturaleza ---guiones contra un despliegue vivo, no
+  derivadas de una especificación--- y no encajan en ninguna de las tres. No se
+  les inventa una cuarta categoría: lo que hay que dejar escrito es el alcance
+  real de la clasificación.
 - **El saneado de cabeceras es propiedad de la pasarela, no de un plugin.** Las
   rutas que no llevan `space-auth` —las públicas de `auth` y el receptor de
   Stripe— lo hacen con `request-transformer`. Si dependiera del plugin, toda
@@ -820,9 +826,20 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
 - **El backend confía en la pasarela, y la garantía es de red.** Se descartó un
   secreto compartido pasarela-servicio: sería defensa en profundidad real, pero
   crea un mecanismo fuera del contrato y devuelve a `pricing` la responsabilidad
-  que #65 concentra en la pasarela. El puerto deja de publicarse en el compose de
-  producción y en el de desarrollo queda atado a `127.0.0.1`; la garantía real es
-  el `ClusterIP` de Kubernetes, no el compose.
+  que #65 concentra en la pasarela. La garantía real es el `ClusterIP` de
+  Kubernetes, no el compose.
+
+  **Lo del puerto vale para `pricing` y no para `auth`, y conviene no leerlo como
+  general.** En `pricing` el puerto deja de publicarse en el compose de
+  producción y en el de desarrollo queda atado a `127.0.0.1`. El compose de
+  desarrollo de **`auth` lo publica en `0.0.0.0`**. Lo que importa no es el
+  puerto sino qué control puentea: la pasarela termina
+  `POST /v1/auth/validate-key` con `request-termination` precisamente para que
+  no se alcance desde fuera ---era un bloqueante de la auditoría---, y con el
+  puerto publicado esa terminación no protege nada, porque se llega al servicio
+  sin pasar por ella. Lo único que queda sobre un extremo que valida
+  credenciales es el secreto interno, que la propia auditoría situó en **tres
+  ficheros `.env`**. Se sigue en #95.
 - **Las cabeceras de identidad se exigen completas y con valores cerrados.** Sin
   respaldo al JWT y sin valores por defecto, porque un valor por defecto es
   inventar identidad. Por el camino legítimo es inalcanzable ---la guarda del
