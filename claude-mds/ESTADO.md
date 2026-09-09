@@ -480,6 +480,116 @@ los avisos.
 s frente a 7. Para tandas de repetición, `pnpm exec jest --coverage`. Con suites
 mayores esto va a doler.
 
+**Sesión 7 — #83, el último bloqueante de la fase 1.** El objeto era el vector
+de amplificación medido en la sesión 5. Se cerró en `api-gateway#2`, y lo que
+más ha dado de sí no fue implementarlo sino que **el diseño escrito no era
+implementable tal cual** y que **la prueba escrita para vigilarlo no podía
+fallar**.
+
+**La medición, antes y después, con el mismo script.** Se reprodujo primero
+sobre `main` sin tocar nada, porque un «antes» heredado no es un «antes»: con la
+cuota agotada, 25 claves aleatorias contra una ruta protegida dieron **cero
+`429`** y el recuento de validaciones en el registro de `auth` pasó de 98 a 123.
+Después: **25 de 25 en `429`** y el recuento inmóvil en 132. El script agota
+hasta ver un `429` en lugar de enviar un número fijo, de modo que sirve para las
+dos medidas sin cambiar ninguna constante.
+
+**La divergencia con la sesión 5, que no fue motivo de parada.** Aquella midió
+24 de 25 llegando a `auth` y una con `503` por tiempo de espera agotado. En la
+reproducción llegaron **las 25**, en dos pasadas consecutivas, **sin un solo
+`503`**. Se decidió seguir y decirlo: el resultado que sostiene el issue ---cero
+`429`, la caché negativa no absorbe nada, una consulta a Mongo por clave
+inventada--- se reprodujo exacto, y la amplificación medida resultó **peor** que
+la registrada, no mejor. El `503` era una propiedad de la carga de aquel momento
+y no del diseño; parar por su ausencia habría sido parar porque el sistema
+aguantó más.
+
+**Tres hechos de la pasarela, medidos y no razonados**, porque los tres decidían
+el diseño y ninguno se lee en la documentación del producto:
+
+- **Dos instancias del mismo plugin no se acumulan**: la más específica
+  sustituye a la global. Medido con una global de 5 por minuto y otra por ruta
+  de 100 sobre la misma ruta: ocho peticiones, límite efectivo 100, ningún
+  rechazo. Es lo que obliga a que los dos limitadores sean **dos extensiones
+  distintas**, porque la prioridad de un plugin es fija y única y el diseño
+  escrito las quería a los dos lados de la autenticación.
+- **Que el limitador por cuenta no se pueda evadir falsificando la cabecera de
+  identidad no se podía dar por bueno leyendo el código**: el accesor de
+  cabeceras de la pasarela resuelve por una variable de nginx y no por la tabla
+  de cabeceras, de modo que dependía de que la reescritura actualizase esa
+  variable. Se midió: seis peticiones autenticadas con la cabecera falsificada y
+  distinta en cada una, el contador decreciendo de forma monótona. Cuenta por el
+  valor que escribe la pasarela.
+- **La resolución de identificador del limitador de serie termina en «o la
+  dirección reenviada»**, así que cualquier criterio que no resuelva cae a la
+  dirección de origen **en silencio**.
+
+**El hueco del propio plan, cerrado antes de escribir la prueba.** El plan
+aprobado decía que montar el limitador por cuenta donde no debe se delataría con
+un `500`. Al escribirlo se vio que eso solo era cierto **si la cabecera
+faltaba**: con la validación ausente pero el cliente enviándola, el limitador
+habría contado el valor del cliente y respondido con normalidad. Se cerró con un
+apretón de manos ---la validación deja marca en el contexto de la petición y el
+limitador la exige---, de modo que ahora falla también con la cabecera
+falsificada. Las dos vías tienen prueba.
+
+**Y el hallazgo incómodo: la prueba nueva no podía fallar por dos vías
+distintas.** Se buscaron a propósito, aplicando la tercera lección sobre
+guardianes de la sesión 6, y las dos estaban:
+
+- El bloque del limitador de abuso **se calibraba sobre la cuota que
+  encontrara**. Con una cabecera no numérica ---un `500`, la conexión
+  rechazada--- el recuento quedaba vacío, los bucles no iteraban y esperado y
+  obtenido salían **ambos vacíos**: la comprobación pasaba.
+- La comprobación de que la inundación **no** deja líneas nuevas en el registro
+  de `auth` compara dos lecturas cuyo valor esperado es **cero**. Con el
+  instrumento roto ---contenedor parado, otro controlador de registro--- las dos
+  lecturas darían cero y habría pasado **justo cuando no puede ver nada**.
+
+Los dos bloques exigen ahora el estado exacto de partida, esperan a que ruede la
+ventana si hace falta y **abortan diciendo qué encontraron**; y antes de la
+inundación se comprueba que el recuento **se mueve** con una credencial válida,
+para que el cero posterior signifique algo. El mismo defecto tenía el guardián
+de la propia medición.
+
+**Un defecto real lo destapó esa prueba**, no la revisión: el contador por
+cuenta se indexaba sin ámbito, de modo que todas las rutas con el limitador
+compartían cupo aunque cada una declarase un número distinto, y el efectivo era
+el menor de ellos. Compartir cupo entre rutas es **lo correcto** para un límite
+económico ---la tasa es de la cuenta, y un contador por ruta se evade
+repartiendo las llamadas entre extremos---, pero tiene que ser deliberado: la
+clave lleva ahora un ámbito configurable, que es además el gancho para separar
+inferencia de gestión cuando toque.
+
+**Sobre el método, y va a §8.1: la expansión de llaves del intérprete de órdenes
+como límite de la instrumentación.** Un programa de Python con un diccionario
+por comprensión, incrustado en una sustitución de órdenes anidada dentro de
+comillas dobles, lo **parte el intérprete** ---hay una coma dentro de llaves---:
+el resultado es que la petición se ejecuta **dos veces** y el programa no
+compila. Con el error redirigido a la nada, el síntoma aparece a distancia y
+disfrazado: un contador una vuelta por delante de lo que la prueba cree haber
+gastado, que se atribuye al sistema medido y no al instrumento. Es el mismo
+patrón que el registro de acceso de la sesión 3 ---el fallo no estaba donde
+apuntaba el síntoma---, y la lección es de método: **cuando la medición y el
+instrumento comparten intérprete, el instrumento entra en el sistema bajo
+medida**. La regla que queda en el repositorio es que el programa incrustado
+vive en una función, nunca en línea.
+
+**Lo que hereda I6, enunciado en el PR a propósito.** Los números del sustrato
+---600 por minuto y dirección de origen, 300 por minuto y cuenta--- quedan **muy
+por debajo** de las tasas que publica la oferta: 600 por minuto son 10 por
+segundo, y un cliente del plan superior haciendo gestión a sus 200 por segundo
+toparía al **5 %** de lo contratado. Hoy no lo nota nadie porque nada evalúa
+planes, pero la dificultad no es elegir otro número: **el limitador de abuso
+corre antes de saber quién llama**, por construcción, así que no puede conocer
+el plan. Reconciliar un límite previo a la autenticación con tasas que dependen
+del plan es el trabajo de I6. Se anotan también como suyos el almacenamiento
+local ---por nodo, de modo que con varias réplicas el límite efectivo se
+multiplica--- y la ventana fija, que admite una ráfaga del doble en el borde.
+
+Ninguno de los dos se cambió aquí, por acuerdo explícito: este PR construye el
+sustrato y no la segmentación por plan.
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -500,15 +610,40 @@ batería en rojo durante dos fases deja de mirarse.
 salió de verificarlo. Con ellos, el repositorio de `auth` queda además con la CI
 en verde de forma determinista, que era la otra mitad del criterio.
 
-**El bloqueante pasa a ser #83**, y no forma parte del montón que pasa a
-fase 2. Es el vector de amplificación medido en la sesión 5: el orden de
-prioridades de la pasarela deja fuera del límite de tasa a quien no trae
-credencial, de modo que una inundación con claves inventadas no encuentra freno
-alguno y cada clave distinta se convierte en una consulta a `auth`. No es una
-deuda de estilo sino la desmentida de una protección que la memoria daba por
+~~**El bloqueante pasa a ser #83.**~~ **Cerrado en la sesión 7**
+(`api-gateway#2`). Era el vector de amplificación medido en la sesión 5: el
+orden de prioridades de la pasarela dejaba fuera del límite de tasa a quien no
+traía credencial, de modo que una inundación con claves inventadas no encontraba
+freno alguno y cada clave distinta se convertía en una consulta a `auth`. No era
+una deuda de estilo sino la desmentida de una protección que la memoria daba por
 existente ---por eso arrastró la corrección del capítulo 6 y de la entrada de
-«Decisiones tomadas en conversación»---, y mientras siga abierta el argumento de
-disponibilidad del canal de API se sostiene sobre algo que no está.
+«Decisiones tomadas en conversación»---. Medido antes y después con el mismo
+script: de **cero `429` y 25 de 25 llegando a `auth`** a **25 de 25 en `429` y
+ninguna llegando**.
+
+**La fase 1 se queda sin bloqueante.** Lo que sigue con etiqueta `fase:1` es lo
+que ya estaba señalado como aplazado deliberadamente, más el que este documento
+sigue aparte:
+
+| Issue | Qué es | Destino |
+|---|---|---|
+| **#74** | el compose de producción de `pricing` publica el puerto de su MongoDB | fase 2 |
+| **#81** | la prueba que le falta a `identity-headers.sh` para el caso de API KEY sin `role` | fase 2 |
+| **#85** y **#86** | supresión de la cuenta y separación entre pausa y sanción; #85 no puede ir antes que #86 | fase 2 |
+| **#63** | siembra de la cuenta administradora inicial | sin decidir, ver «Pendiente de decidir» |
+
+Ninguno bloquea `fr-commercial`, que es el criterio con el que se aplazaron.
+**#64** sigue siendo fase 3 y **#80** sigue propuesto para cerrarse como
+improcedente, los dos por lo ya escrito arriba.
+
+De la sesión 7 salen además dos issues nuevos, ninguno bloqueante: **#93**, que
+`api-gateway` es el único repositorio de servicio sin integración continua ---se
+comprobó contra la API de GitHub: cero flujos de trabajo y cero comprobaciones
+sobre `main`, de modo que su PR se fusionó sin comprobación porque no hay
+ninguna---; y **#94**, que el README de la pasarela funde las dos ventanas de
+revocación ---la del JWT, acotada por la guarda de arranque a [5 min, 2 h], y la
+del veredicto cacheado, del orden del minuto--- en una cifra de 60 minutos que
+no es de ninguna de las dos.
 
 El resto **pasa a la fase 2 de forma deliberada, no por olvido**: **#74**, el
 compose de producción de `pricing` que publica el puerto de su MongoDB; **#81**,
@@ -621,20 +756,48 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
   veredicto viejo habría sido el comportamiento por defecto y no una decisión.
 - **La caché negativa es optimización de latencia, no un control de
   seguridad.** La primera mitad se mantiene; la segunda **era falsa y se
-  corrige**. Se venía diciendo que la inundación con claves inventadas la cubría
-  el límite de peticiones, y la sesión 5 lo desmintió midiéndolo: el plugin de
-  autenticación tiene más prioridad que el limitador, así que en rutas
-  protegidas corta antes de que este cuente, y con la cuota global ya agotada 25
-  claves aleatorias distintas dieron **cero `429`** y 24 llegaron hasta `auth`.
-  Cada clave tiene un resumen distinto y por tanto una entrada de caché
-  distinta, de modo que la caché negativa tampoco absorbe nada. La protección
-  real exige **dos limitadores**: uno amplio por IP **delante** de la
-  autenticación, que corta la inundación y protege a `auth`, y otro por cuenta
-  **detrás**, sobre la cabecera `X-Account-Id` que la pasarela ya escribe, que
-  es el que implementa las tasas por plan y hará falta igualmente. Bajar solo
-  la prioridad frenaría una IP y no muchas, y cambiaría la superficie de error
-  de todas las rutas protegidas. Se sigue en #83, y la misma corrección se ha
-  aplicado al capítulo 6 de la memoria.
+  corrigió**. Se venía diciendo que la inundación con claves inventadas la
+  cubría el límite de peticiones, y la sesión 5 lo desmintió midiéndolo: el
+  plugin de autenticación tenía más prioridad que el limitador, así que en rutas
+  protegidas cortaba antes de que este contase, y con la cuota global ya agotada
+  25 claves aleatorias distintas dieron **cero `429`** y 24 llegaron hasta
+  `auth`. Cada clave tiene un resumen distinto y por tanto una entrada de caché
+  distinta, de modo que la caché negativa tampoco absorbe nada.
+
+  La protección real exige **dos limitadores**: uno amplio por dirección de
+  origen **delante** de la autenticación, que corta la inundación y protege a
+  `auth`, y otro por cuenta **detrás**, sobre la identidad que la pasarela ya
+  escribe, que es el que implementará las tasas por plan y hará falta
+  igualmente. Bajar solo la prioridad frenaría una dirección y no muchas, y
+  cambiaría la superficie de error de todas las rutas protegidas.
+
+  **#83 queda cerrado en la sesión 7, y ese argumento se conserva intacto:
+  posición, clave y naturaleza de los dos limitadores son exactamente los que
+  aquí estaban escritos.** Lo que cambió al implementarlo fue el **mecanismo**.
+  Esta entrada los describía a los dos en vocabulario del limitador que Kong
+  trae de serie ---`limit_by: ip` y `limit_by: header`---, y eso no es
+  implementable: **la prioridad de un plugin es fija y única**, de modo que dos
+  configuraciones del mismo no pueden quedar una a cada lado de la
+  autenticación; y además **dos instancias del mismo plugin no se acumulan**, la
+  más específica sustituye a la global, lo cual se midió. Uno de los dos tiene
+  que ser extensión propia. El de abuso es el de Kong, para que el camino de la
+  inundación descanse sobre código de la plataforma; el de cuenta es propio,
+  que es donde caben las tasas por plan que el de serie no puede aplicar sin
+  conocer el plan. La corrección del capítulo 6 de la memoria sigue siendo la
+  aplicable en cuanto al diseño; su última frase, que dejaba la implementación
+  como trabajo pendiente, deja de serlo.
+- **El limitador por cuenta no cae a la dirección de origen cuando le falta el
+  identificador: falla con `500`.** El limitador que Kong trae de serie sí cae
+  ---su resolución de identificador termina en un «o la dirección reenviada»---,
+  y hacerlo en silencio sería un control que aparenta contar y no cuenta:
+  montado por descuido en una ruta donde la validación no corre, seguiría
+  respondiendo con normalidad mientras cuenta por algo que no es la cuenta.
+  Y no depende de la cabecera, que sería insuficiente: en una ruta sin
+  validación la cabecera que llega es la del cliente, y el limitador habría
+  contado ese valor tan campante. **La validación deja marca en el contexto de
+  la petición y el limitador la exige**, de modo que montarlo donde no debe
+  falla también **con la cabecera falsificada**. Las dos vías están fijadas con
+  prueba.
 - **`X-API-Key` no va en las cabeceras permitidas del CORS.** El canal de API es
   máquina a máquina; el caso del navegador son los tokens de enrolamiento. Hay
   un test que lo fija para que revertirlo sea una decisión y no un descuido.
