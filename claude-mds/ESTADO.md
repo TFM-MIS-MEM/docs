@@ -646,14 +646,25 @@ avisos de axios al árbol de desarrollo ---25 en total, con los dos de
 alcance. Queda abierto con esa corrección escrita en su comentario, propuesto
 para cerrarse como improcedente.
 
-De la sesión 7 salen además dos issues nuevos, ninguno bloqueante: **#93**, que
-`api-gateway` es el único repositorio de servicio sin integración continua ---se
-comprobó contra la API de GitHub: cero flujos de trabajo y cero comprobaciones
-sobre `main`, de modo que su PR se fusionó sin comprobación porque no hay
-ninguna---; y **#94**, que el README de la pasarela funde las dos ventanas de
-revocación ---la del JWT, acotada por la guarda de arranque a [5 min, 2 h], y la
-del veredicto cacheado, del orden del minuto--- en una cifra de 60 minutos que
-no es de ninguna de las dos.
+De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
+
+- **#93** — `api-gateway` es el único repositorio de servicio sin integración
+  continua. Se comprobó contra la API de GitHub: cero flujos de trabajo y cero
+  comprobaciones sobre `main`, de modo que su PR se fusionó sin comprobación
+  porque no hay ninguna. Alcance mínimo: validación declarativa de `kong.yml` y
+  `luacheck` sobre `plugins/`.
+- **#94** — el README de la pasarela funde las dos ventanas de revocación ---la
+  del JWT, acotada por la guarda de arranque a [5 min, 2 h], y la del veredicto
+  cacheado, del orden del minuto--- en una cifra de 60 minutos que no es de
+  ninguna de las dos.
+- **#95** — el compose de `auth` publica el puerto del servicio en `0.0.0.0`, y
+  con ello la terminación de `validate-key` en la pasarela deja de proteger
+  nada. **No es un defecto solo de desarrollo**: el compose de producción
+  publica el puerto del servicio *y* el de MongoDB. Hermano de **#74**.
+- **#96** — en las rutas públicas salen dos juegos de `RateLimit-*`, con
+  `RateLimit-Limit` dos veces ---600 de la pasarela y 100 de `auth`---, emitidos
+  por componentes de repositorios distintos. Lleva anotadas las dos líneas de
+  README que quedaron pendientes al cerrar #83, que se escriben al arreglarlo.
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
