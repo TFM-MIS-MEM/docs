@@ -3,8 +3,8 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** cierre de la sesión 6 (#79 y #90 cerrados; el
-> paso de auditoría de `auth`, en verde y significativo).
+> **Última actualización:** cierre de la sesión 8 (#95 cerrado; `auth` deja de
+> ser alcanzable fuera de la pasarela y de arrancar con un secreto publicado).
 
 ---
 
@@ -606,6 +606,130 @@ que ese párrafo se queda desfasado. Un séptimo parche documenta un defecto
 | 6 — Implementación | Una **corrección** y material nuevo, ambos en §6.3.1. La corrección retira «su implementación queda como trabajo pendiente» y sustituye el enunciado del diseño por la remisión al capítulo 4, que es donde toca por reparto. Lo nuevo: la desviación de mecanismo y por qué era forzosa ---prioridad fija y única, y dos configuraciones del mismo mecanismo no se acumulan---, el reparto elegido y sus dos razones, que el límite por cuenta **no admite respaldo** y falla en vez de contar por origen, las cifras y su contradicción estructural con las tasas publicadas ---un límite anterior a la validación no puede conocer el plan porque todavía no sabe quién llama---, y que el almacenamiento es local por nodo y la ventana fija |
 | 8 — Validación | Cuatro parches. Una **tercera aplicación del procedimiento**, cuyo objeto no es una discrepancia con la especificación sino una propiedad que la memoria afirmaba y la implementación no tenía, con el antes y el después, el diseño del instrumento de agotamiento y la lección de que **una medición heredada no es línea de partida hasta reproducirla**. `\subsection{Un defecto que no reside en ningún componente}`, nueva, con los dos juegos de cabeceras de las rutas públicas: una propiedad que no falta en ninguno de los dos servicios y falta en su composición, y que **ninguno de los dos puede corregir por su cuenta**. En §8.4, la **corrección** de «tres formas» a «cuatro» de guardián que deja de controlar sin dejar de existir, con la cuarta ---la comprobación que no puede fallar--- y sus dos manifestaciones; la acotación de validez externa a un nodo y un origen; y la advertencia de que cuando la medición y su instrumento comparten intérprete, el instrumento entra en el sistema medido |
 
+**Sesión 8 — #95, y una premisa del capítulo 4 que era falsa.** El objeto no era
+un puerto abierto: era **la frase del capítulo 4 que exige «que los
+microservicios sean accesibles únicamente a través de [la pasarela]»**, y que
+el propio capítulo advierte que es una propiedad de la topología y no del
+código. Los dos composes de `auth` la contradecían. Se cierra en
+`auth-microservice#5`.
+
+**Lo primero que salió fue que el encargo apuntaba al párrafo equivocado**, y
+eso vale más que el arreglo. El prompt aplicaba a `auth` el argumento del
+microservicio **de destino** ---el que acepta la identidad ya resuelta sin
+volver a verificarla---, y `auth` es el **emisor**: no lee `X-Account-Id` ni
+`X-Role`, cero apariciones en `src/`, y `protect` verifica firma y cuenta contra
+su propia base de datos. La sonda que el encargo pedía ---cabeceras de identidad
+falsificadas contra una ruta protegida--- devolvió `401`, es decir **no
+reprodujo nada**. La sesión se reencauzó en vez de fabricar la evidencia que se
+esperaba. Dato para la memoria: esa frase del capítulo 4 alcanza a `pricing` y a
+`fr-commercial`, **no a `auth`**; la que sí alcanza a `auth` es la de la
+accesibilidad, dos párrafos antes.
+
+**Tres agujeros, todos medidos por la IP de LAN y no por `127.0.0.1`.** Medir
+por el bucle local habría sido la cuarta forma de guardián de la sesión 7 ---la
+comprobación que no puede fallar---: con el puerto atado a `127.0.0.1`, un
+`curl` a `localhost` sigue funcionando después del cambio y el «después» saldría
+idéntico al «antes».
+
+| | Antes | Después |
+|---|---|---|
+| `validate-key` por LAN, sin secreto | `HTTP 401` ---la operación responde--- | `exit=7`, conexión rechazada |
+| MongoDB de `auth` por LAN, sin credencial | `CONECTADO`, `["accounts"]`, **30 documentos** | `ECONNREFUSED` |
+| `INTERNAL_API_SECRET` ausente | `ARRANCA. secreto efectivo: dev_internal_secret_key_789` | `NO ARRANCA` |
+
+El segundo **no estaba en el texto del issue** y es el peor: la colección
+`accounts` ---correos, hashes de contraseña y de API KEY--- quedaba legible **y
+escribible** sin pasar por el servicio. Escribir `role: "ADMIN"` en un documento
+no necesita ni JWT ni secreto, y elude la regla de que `register` asigna siempre
+`CUSTOMER`.
+
+**Producción no es «lo mismo pero en el bucle local».** En desarrollo,
+`127.0.0.1` compra depuración directa y `/docs` en el navegador ---el primer
+`servers` del contrato, que por eso no hubo que tocar--- a cambio de dejar fuera
+a la red. En producción ese lado del intercambio no existe y el coste sigue: el
+bucle local es alcanzable por todo proceso del anfitrión, por un contenedor con
+`network_mode: host` y, según el reenvío que haya delante, por un `ssh -L`.
+Publicar en el bucle local no es «no publicar», es «publicar a todo el
+anfitrión». Producción se queda **sin `ports`**, que en Kubernetes se traduce a
+`ClusterIP` sin traducción.
+
+**La guarda rechaza lo que CONSTA público, no lo que parece débil.** Mismo
+patrón que `jwtExpiry` ---validar el valor, no su presencia--- y el criterio
+escrito en la cabecera del fichero: la lista de literales es verificable leyendo
+el repositorio, mientras que la longitud mínima y la entropía son heurísticas
+que no distinguen un secreto de una cadena larga cualquiera, no detectan el
+literal publicado si además es largo, y rechazan secretos legítimos por cortos.
+
+**Y la guarda va en las dos capas, o no está.** Un valor por defecto en el
+compose anula una guarda del código, porque ésta nunca llega a ver la variable
+ausente. Por eso `INTERNAL_API_SECRET` lo pierde también en
+`docker-compose.dev.yml` y el de producción usa `${VAR:?...}`.
+
+**El barrido del patrón `|| '<valor>'`**: nueve apariciones, todas en
+`src/config/index.js`. Entran tres. `MONGODB_URI` y `FRONTEND_URL` acompañan al
+secreto porque su defecto no era inseguro sino **silencioso** ---el primero
+arrancaba el servicio contra otra base de datos, el segundo metía enlaces a
+`localhost:3000` en el correo de recuperación de contraseña, que es como
+producción venía funcionando al no pasarlo `docker-compose.yml`---. Seis se
+quedan por tener un defecto razonable. Y apareció una categoría que el patrón no
+encuentra: `JWT_SECRET` y `RESEND_API_KEY`, sin defecto **y sin guarda**, que
+fallan tarde con un 500 en vez de al arrancar (#99).
+
+**Lo que el PR NO cierra, dicho en el propio compose y en un issue aparte.**
+Atar el puerto a `127.0.0.1` deja fuera a la red, **no al anfitrión**: sin
+autenticación en MongoDB, cualquier proceso de la máquina sigue leyendo la tabla
+de cuentas (#97). Se abre para que no se dé por resuelto lo que no lo está.
+
+**Recorrido después del cambio**, porque el riesgo real era romper lo que llama
+a `auth` desde el anfitrión: 125 pruebas en verde y trinquete a 88/79/87/88; las
+**cuatro** suites de shell de `api-gateway` ejecutadas sin tocarlas, las cuatro
+`exit=0`; `dev-up.sh` **desde cero** con los tres `.env` borrados ---la ruta que
+sufre el cambio de `.env.example`---, con el secreto generado coincidiendo entre
+`auth` y la pasarela; y el canal web completo por la pasarela, de `register` a
+`me`.
+
+**La CI se tiñó de rojo por algo ajeno, y ésa es la mejor noticia de la
+sesión.** El aviso `GHSA-jxfw-x594-9x9m` sobre `morgan` <1.12.0 se difundió el
+**08/09 a las 21:28 UTC**, entre el último verde de `main` y el PR. `main`
+fallaba igual y el diff no tocaba ninguna dependencia. Se cerró aparte, en
+`auth-microservice#6` ---rama desde `main`, arreglo, fusión, y `main` traído a
+`fase2/95`---, y es **cambio de lockfile y no de manifiesto**: `^1.11.0` ya
+alcanzaba a 1.12.0, así que `package.json` no se toca. `pnpm update` sube además
+el rango por su cuenta; se revirtió, porque subir un rango que ya alcanzaba la
+versión parcheada habría hecho pasar por decisión un efecto colateral de la
+herramienta.
+
+Lo que vale para el capítulo 8 no es el arreglo sino **que nadie lo buscó**. La
+sesión 6 argumentó que un guardián en rojo permanente deja de leerse, y lo
+argumentó sobre un guardián que nunca había tenido ocasión de dispararse. Ahora
+la ha tenido: tres ejecuciones en verde, se publica un aviso real sobre una
+dependencia de producción ---`morgan` escribe una línea por petición--- y el
+paso **se tiñe solo, en la primera ejecución posterior**. Es la diferencia entre
+un guardián y un adorno, y no se podía afirmar antes.
+
+De la sesión salen **cuatro issues nuevos, #97 a #100**, ninguno arreglado de
+paso, más un comentario en **#74** dejando dicho que su alcance no cambia ---es
+el MongoDB de producción de `pricing`, y la sesión sólo tocó `auth`--- y que el
+criterio de #95 está listo para reutilizarse.
+
+- **#97.** La autenticación de MongoDB en `auth`. Se abre **para que no se dé
+  por resuelto lo que no lo está**: atar el puerto deja fuera a la red, no al
+  anfitrión.
+- **#98.** El MongoDB de desarrollo de `pricing`, en `0.0.0.0`. Cuarto hermano
+  del mismo defecto de topología, con #74 y los dos de `auth`.
+- **#99.** `JWT_SECRET` y `RESEND_API_KEY`: sin valor por defecto **y sin
+  guarda**, de modo que fallan tarde con un 500 en vez de al arrancar. La
+  categoría que el barrido de `|| '<valor>'` no encuentra.
+- **#100.** El secreto interno estaba publicado en **tres** `.env.example`
+  ---`auth`, `api-gateway` y `pricing`---, y sólo se corrigió el primero. Lo
+  anotable no es el descuido sino el mecanismo: **una guarda escrita en un
+  repositorio ha cambiado lo que arranca en otros dos**, sin que ningún fichero
+  suyo cambiara, porque el secreto es compartido por naturaleza y su ejemplo
+  estaba duplicado. El sistema queda a medio levantar y el fallo aparece en el
+  componente que hizo lo correcto. Hermano del «defecto que no reside en ningún
+  componente» de la sesión 7: aquél vivía en la composición de dos servicios,
+  éste en la de tres ejemplos.
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -673,10 +797,11 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
   del JWT, acotada por la guarda de arranque a [5 min, 2 h], y la del veredicto
   cacheado, del orden del minuto--- en una cifra de 60 minutos que no es de
   ninguna de las dos.
-- **#95** — el compose de `auth` publica el puerto del servicio en `0.0.0.0`, y
-  con ello la terminación de `validate-key` en la pasarela deja de proteger
+- ~~**#95** — el compose de `auth` publica el puerto del servicio en `0.0.0.0`,
+  y con ello la terminación de `validate-key` en la pasarela deja de proteger
   nada. **No es un defecto solo de desarrollo**: el compose de producción
-  publica el puerto del servicio *y* el de MongoDB. Hermano de **#74**.
+  publica el puerto del servicio *y* el de MongoDB. Hermano de **#74**.~~
+  **Cerrado en la sesión 8.**
 - **#96** — en las rutas públicas salen dos juegos de `RateLimit-*`, con
   `RateLimit-Limit` dos veces ---600 de la pasarela y 100 de `auth`---, emitidos
   por componentes de repositorios distintos. Lleva anotadas las dos líneas de
@@ -856,17 +981,25 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
   que #65 concentra en la pasarela. La garantía real es el `ClusterIP` de
   Kubernetes, no el compose.
 
-  **Lo del puerto vale para `pricing` y no para `auth`, y conviene no leerlo como
-  general.** En `pricing` el puerto deja de publicarse en el compose de
-  producción y en el de desarrollo queda atado a `127.0.0.1`. El compose de
-  desarrollo de **`auth` lo publica en `0.0.0.0`**. Lo que importa no es el
-  puerto sino qué control puentea: la pasarela termina
+  ~~**Lo del puerto vale para `pricing` y no para `auth`, y conviene no leerlo
+  como general.**~~ **Cerrado en la sesión 8.** El argumento se conserva entero
+  porque sigue siendo el bueno: en `pricing` el puerto dejaba de publicarse en
+  el compose de producción y en el de desarrollo quedaba atado a `127.0.0.1`,
+  mientras que el de desarrollo de `auth` lo publicaba en `0.0.0.0`. **Lo que
+  importa no es el puerto sino qué control puentea**: la pasarela termina
   `POST /v1/auth/validate-key` con `request-termination` precisamente para que
   no se alcance desde fuera ---era un bloqueante de la auditoría---, y con el
   puerto publicado esa terminación no protege nada, porque se llega al servicio
-  sin pasar por ella. Lo único que queda sobre un extremo que valida
-  credenciales es el secreto interno, que la propia auditoría situó en **tres
-  ficheros `.env`**. Se sigue en #95.
+  sin pasar por ella. Lo único que quedaba sobre un extremo que valida
+  credenciales era el secreto interno, que la propia auditoría situó en **tres
+  ficheros `.env`**.
+
+  Lo que añade el cierre, y no estaba en el enunciado: **atar el puerto al
+  bucle local deja fuera a la red, no al anfitrión**. Sin autenticación en
+  MongoDB ---que `auth` no tiene---, cualquier proceso de la máquina sigue
+  leyendo la tabla de cuentas. Por eso el cierre vino acompañado de #97 en vez
+  de darse por completo, y por eso los tres ficheros `.env` son #100: la
+  corrección de uno solo deja el sistema a medio levantar.
 - **Las cabeceras de identidad se exigen completas y con valores cerrados.** Sin
   respaldo al JWT y sin valores por defecto, porque un valor por defecto es
   inventar identidad. Por el camino legítimo es inalcanzable ---la guarda del
@@ -888,6 +1021,13 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
 
 ## Pendiente de decidir
 
+- **Qué hacer con `RESEND_API_KEY`.** No puede ser obligatoria en desarrollo
+  ---se trabaja sin ella y el arnés usa una falsa---, de modo que la guarda de
+  arranque que se le aplicó a las demás no le vale tal cual. ¿Se exige sólo con
+  `NODE_ENV=production`, o el servicio arranca sin ella y **degrada el envío de
+  correo de forma explícita** en vez de reventar en la primera recuperación de
+  contraseña? Es la mitad de #99 que sigue siendo una pregunta; la otra mitad,
+  `JWT_SECRET`, no lo es.
 - **Siembra de la cuenta administradora inicial** (issue #63). Con `register`
   asignando siempre `CUSTOMER`, no existe vía para crear el primer `ADMIN`, y
   `PATCH /accounts/{id}/status` —única vía de reactivación— lo exige. En un
