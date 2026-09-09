@@ -628,13 +628,23 @@ sigue aparte:
 | Issue | Qué es | Destino |
 |---|---|---|
 | **#74** | el compose de producción de `pricing` publica el puerto de su MongoDB | fase 2 |
-| **#81** | la prueba que le falta a `identity-headers.sh` para el caso de API KEY sin `role` | fase 2 |
+| **#81** | la prueba que le falta a `identity-headers.sh` para cubrir la única línea de la que depende hoy que el canal de API llegue siempre con `X-Role` | fase 2 |
 | **#85** y **#86** | supresión de la cuenta y separación entre pausa y sanción; #85 no puede ir antes que #86 | fase 2 |
 | **#63** | siembra de la cuenta administradora inicial | sin decidir, ver «Pendiente de decidir» |
 
-Ninguno bloquea `fr-commercial`, que es el criterio con el que se aplazaron.
-**#64** sigue siendo fase 3 y **#80** sigue propuesto para cerrarse como
-improcedente, los dos por lo ya escrito arriba.
+Los cuatro se aplazaron **de forma deliberada, no por olvido**, y el criterio fue
+que ninguno bloquea `fr-commercial`. **#63 es el único que hoy produce desajuste
+entre `gh issue list --label fase:1` y este documento**, y por eso se sigue
+aparte en «Pendiente de decidir» en lugar de darlo por planificado.
+
+Dos que podrían parecer que faltan y no faltan. **#64** sigue siendo fase 3, por
+lo ya escrito arriba. Y **#80 dejó de contar en la sesión 6**, al comprobarse
+que **su premisa era falsa**: el `overrides` de axios no silencia al escáner,
+**fuerza** la versión parcheada. Medido sobre `main`, retirarlo devuelve 23
+avisos de axios al árbol de desarrollo ---25 en total, con los dos de
+`browserslist`--- a cambio de nada, porque `--prod` ya los deja fuera de
+alcance. Queda abierto con esa corrección escrita en su comentario, propuesto
+para cerrarse como improcedente.
 
 De la sesión 7 salen además dos issues nuevos, ninguno bloqueante: **#93**, que
 `api-gateway` es el único repositorio de servicio sin integración continua ---se
@@ -644,24 +654,6 @@ ninguna---; y **#94**, que el README de la pasarela funde las dos ventanas de
 revocación ---la del JWT, acotada por la guarda de arranque a [5 min, 2 h], y la
 del veredicto cacheado, del orden del minuto--- en una cifra de 60 minutos que
 no es de ninguna de las dos.
-
-El resto **pasa a la fase 2 de forma deliberada, no por olvido**: **#74**, el
-compose de producción de `pricing` que publica el puerto de su MongoDB; **#81**,
-la prueba que le falta a `identity-headers.sh` para cubrir la única línea de la
-que depende hoy que el canal de API llegue siempre con `X-Role`; y **#85** con
-su dependencia **#86**, la supresión de la cuenta y la separación entre pausa y
-sanción. Ninguno bloquea `fr-commercial`, y #85 no puede implementarse antes que
-#86.
-
-Lleva también `fase:1` y sigue abierto **#63**, que este documento sigue por
-separado en «Pendiente de decidir». Es ya el único que produce el desajuste
-entre `gh issue list --label fase:1` y este párrafo: **#80 dejó de contar en la
-sesión 6**, al comprobarse que su premisa era falsa: el `overrides` de axios no
-silencia al escáner, **fuerza** la versión parcheada. Medido sobre `main`,
-retirarlo devuelve 23 avisos de axios al árbol de desarrollo ---25 en total, con
-los dos de `browserslist`--- a cambio de nada, porque `--prod` ya los deja fuera
-de alcance. Queda abierto con esa corrección escrita en su comentario, propuesto
-para cerrarse como improcedente.
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
@@ -729,10 +721,29 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
 - **`login` rechaza cuentas suspendidas con `403`.** La ventana de revocación
   se refiere a los JWT ya emitidos; no habilita a obtener uno nuevo. Sin este
   control la suspensión no tendría efecto alguno sobre el canal web.
-- **El limitador de tasa va por operación**, montado solo en `login`,
-  `forgot-password` y `reset-password`. Global produciría `429` en endpoints
-  que no lo declaran, es decir, respuestas no conformes. El límite general es
-  responsabilidad de Kong (issue I6).
+- **El limitador de tasa de `auth` va por operación**, montado solo en `login`,
+  `forgot-password` y `reset-password`. **La decisión se mantiene; su motivo
+  original ha dejado de valer y se sustituye.** Se justificaba en que montarlo
+  global produciría `429` en operaciones que no lo declaran, es decir,
+  respuestas no conformes; desde la sesión 5 **las 46 operaciones alcanzables
+  por la pasarela declaran `429`**, incluidas las públicas de `auth`, porque el
+  criterio es la alcanzabilidad y no la protección. Esa objeción ya no existe.
+  Y la coletilla de que «el límite general es responsabilidad de Kong (I6)»
+  también caducó: **el límite general existe desde la sesión 7**; lo que queda
+  en I6 es la segmentación por plan, los números y el almacén compartido, no la
+  existencia del límite.
+
+  El motivo que sí la sostiene, y que además está medido, es que **los dos
+  limitadores atacan ataques de forma distinta y quieren ventanas distintas**.
+  El de la pasarela es de inundación: 600 por minuto y dirección de origen,
+  generoso, pensado para que una ráfaga no tumbe a `auth`. El de `auth` es de
+  relleno de credenciales, que es lento por naturaleza: 100 **cada quince
+  minutos**, es decir 6,7 por minuto sostenidos, un número que el limitador de
+  la pasarela no alcanza a ver porque su ventana dura sesenta segundos. Montarlo
+  por operación y no sobre todo `/v1/auth` mantiene ese presupuesto estrecho en
+  las tres rutas atacables por fuerza bruta sin racionar las demás, que no lo
+  son. Medido en la sesión 7: con el de la pasarela por delante, el de `auth`
+  **sigue disparando y dispara primero**, y el cuerpo del `429` es el suyo.
 - **La vigencia del JWT tiene guarda de arranque** en el rango [5m, 2h]. La
   memoria argumenta la ventana de revocación sobre 60 minutos y nada impedía
   que un despliegue la contradijera en silencio.
@@ -849,6 +860,19 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
   unidades de capacidad no pueden aplicarse con los mecanismos declarativos de
   Kong, que operan sobre recuentos de peticiones. Pasarela mediante extensión,
   o microservicio.
+
+  **La sesión 7 aporta el primer precedente en funcionamiento de la primera
+  opción**, y con sus costes ya medidos en lugar de estimados: el limitador por
+  cuenta es una extensión propia de la pasarela y funciona, pero paga almacén
+  local ---por nodo, de modo que con varias réplicas el límite efectivo se
+  multiplica---, ventana fija ---con ráfaga del doble en el borde---, un cuerpo
+  de error escrito a mano en la extensión porque el formato de la plataforma no
+  admite el campo que el contrato exige, y un diccionario compartido que hay que
+  declarar **fuera** del plugin, como directiva del servidor, porque la edición
+  libre de Kong no permite declararlo desde él. Nada de esto decide la cuestión:
+  el límite en unidades necesita además el consumo acumulado de la cuenta, que
+  la pasarela no tiene. Pero el coste de la vía «extensión» deja de ser una
+  incógnita.
 
 ---
 
