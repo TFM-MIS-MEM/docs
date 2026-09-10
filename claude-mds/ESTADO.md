@@ -730,6 +730,28 @@ criterio de #95 está listo para reutilizarse.
   componente» de la sesión 7: aquél vivía en la composición de dos servicios,
   éste en la de tres ejemplos.
 
+**La memoria se actualizó**, en `memoria_tex/v9`: ocho parches en tres
+capítulos, con `parches-memoria-sesion8.tex` recogiendo el reparto y el mismo
+criterio de las sesiones 3 a 7. **Uno de los ocho es corrección**, y su interés
+está en la antigüedad: la frase de §6.3.2 que daba por buena la restricción al
+bucle local se escribió sobre `pricing` cinco sesiones atrás, y ha sido el
+trabajo sobre `auth` el que la ha delatado. **El capítulo 4 no se corrige, y eso
+es un resultado**: la frase de la topología resultó cierta como enunciado de
+diseño; lo que la contradecía era el despliegue, no el diseño.
+
+El fichero de parches va por su **versión 2**. Dos de sus instrucciones
+indujeron error al aplicarlas ---una mostraba solo la cola del párrafo a
+sustituir, y la frase acabó duplicada; otra señalaba un punto de inserción que
+partía en dos un argumento continuo y dejaba sin antecedente un «por tanto»---,
+y se corrigieron en el propio fichero para que la sesión que lo relea no repita
+el error.
+
+| Capítulo | Cambio |
+|---|---|
+| 4 — Diseño del servicio | Un parche, material nuevo al final de `\subsection{Ventana de revocación}`. La guarda de arranque deja de leerse como particular de un parámetro y se enuncia como criterio ---un componente rechaza arrancar cuando un valor que solo el despliegue puede fijar llega ausente, o llega con uno de los que el propio proyecto divulga a título de ejemplo---, con el fundamento de que suponer es inventar y de que el arranque es el único momento en que alguien está mirando. Y su relación con la premisa de topología de la subsección anterior: **el código no puede garantizarla, pero puede negarse a constituir la segunda mitad de su fallo** |
+| 6 — Implementación | Cuatro parches, uno de ellos **corrección**. La corrección retira de §6.3.2 que la configuración local «únicamente evita que el entorno de desarrollo contradiga esa premisa» y la sustituye por lo medido: la reduce sin llegar a impedirla. Lo nuevo, en la misma subsección: que **restringir al bucle local es publicar al anfitrión entero**, con las tres vías por las que sigue alcanzándose y por qué la asimetría entre entornos es deliberada y no copiada; y que el coste atribuido a la alternativa descartada ---un secreto replicado en tantos ficheros de configuración como servicios--- dejó de ser hipotético, por vía independiente de la decisión que lo invocó, con el enlace a §8.1.3. Y `\subsection{Configuración que el servicio rechaza asumir}`, nueva: el barrido de los nueve parámetros, los tres que pierden su valor supletorio por ser silenciosamente incorrectos después, el criterio de que la guarda **rechaza lo que consta público y no lo que parece débil**, y que ha de existir en dos planos o no existe |
+| 8 — Validación | Tres parches. `\subsection{Una medición que no reprodujo lo que se esperaba de ella}`, nueva: el procedimiento se aplicó a confirmar una vulnerabilidad enunciada de antemano y devolvió un rechazo, porque el componente probado era el emisor de las credenciales y no un consumidor de identidad; **una no reproducción es un resultado y no un defecto del procedimiento**. En §8.4, el cierre en indicativo de un argumento que la sesión 6 solo pudo dejar en condicional ---un guardián mantenido en verde detectó un aviso que nadie buscaba, en la primera ejecución posterior a su difusión---, y la regla de diseñar la medición para que pueda fallar: **una medición idéntica entre el antes y el después solo resulta concluyente si lo que se conserva idéntico no es precisamente aquello que el cambio modifica** |
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
