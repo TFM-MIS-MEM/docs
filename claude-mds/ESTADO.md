@@ -4,8 +4,9 @@
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
 > **Última actualización:** sesión 9: F1 (#33) fusionado en
-> `fr-commercial-microservice` (`13db3fd`, PR #1), con el arnés de contrato. Decidido además dónde vive la
-> prohibición de campos no declarados: en el contrato (vía C), en el PR de #103.
+> `fr-commercial-microservice` (`13db3fd`, PR #1), con el arnés de contrato.
+> Decidido además dónde vive la prohibición de campos no declarados: en el
+> contrato (vía C), en el PR de #103.
 
 ---
 
@@ -806,10 +807,11 @@ sola llamada y por omisión, caza el estado no declarado, el tipo de contenido
 ajeno, el obligatorio que falta, el tipo, el formato y el `enum`, y es el único
 que rechaza `frozenReason: null`, con razón (#103). **No caza dos cosas:** el
 campo de más ---ningún esquema del contrato lo prohíbe, y entonces es
-conforme--- ni el cuerpo en una respuesta que no declara `content`, como un `204`
-con cuerpo, que jest-openapi sí cazaba. La comparación estática hace falta además porque es lo único que ve el
-lado de la petición: con `pageSize` sin su cota de 100, `pageSize=1000` da un
-`200` **conforme**, y solo la comparación lo delata.
+conforme--- ni el cuerpo en una respuesta que no declara `content`, como un
+`204` con cuerpo, que jest-openapi sí cazaba. La comparación estática hace falta
+además porque es lo único que ve el lado de la petición: con `pageSize` sin su
+cota de 100, `pageSize=1000` da un `200` **conforme**, y solo la comparación lo
+delata.
 
 **Desde F3 (#35), un caso negativo por cada parámetro acotado.** La validación
 de respuestas es ciega a lo que el servicio acepta; cada cota del contrato
@@ -1030,6 +1032,25 @@ el `-> Any`---, doce rojos. El que justifica la
 comparación: con `extra='allow'` en el modelo del servicio, **ninguna** prueba
 de extremo a extremo falla, porque la respuesta se construye campo a campo; solo
 la comparación lo ve.
+
+**La memoria se actualizó**, en `memoria_tex/v10`: ocho parches en tres
+capítulos, con `parches-memoria-sesion9.tex` recogiendo el reparto y el
+mismo criterio de las sesiones 3 a 8. **Uno de los ocho es corrección** de
+texto ya publicado, y su interés está en que lo corregido no era una
+apreciación sino un enunciado de coste: §8.1 daba por suficiente prohibir
+los campos adicionales, y la medición muestra que no lo es allí donde un
+esquema se compone de otro. **Un noveno parche se aplazó a propósito**: el
+que enunciará en el capítulo 4 que el contrato prohíbe además lo que no
+declara. El cambio de contrato se ejecuta en #103, y describir en la
+memoria una propiedad que las especificaciones todavía no tienen induciría
+a error a quien la lea antes. Se escribirá en el fichero de parches de esa
+sesión.
+
+| Capítulo | Cambio |
+|---|---|
+| 4 — Diseño del servicio | Un parche, `\subsection{Autorización sobre los recursos de la cuenta}`, nueva en §4.8. La autorización se reduce a la pertenencia del recurso a la cuenta; el recurso ajeno se responde como inexistente y **con idéntico contenido**, porque distinguirlos convierte cada operación en un oráculo de existencia sobre los datos de otro cliente, que en un servicio biométrico es un indicio sobre las personas registradas; y el rol administrativo gobierna el ciclo de vida de las cuentas, no los datos que cada cliente deposita |
+| 6 — Implementación | Dos parches. §6.3.2 gana la traducción de la implementación de referencia al segundo entorno de ejecución: por qué el rechazo vive en una dependencia y no en una intercepción previa ---un solo emisor del informe de error---, el coste que eso impone a ocho de las veintisiete operaciones ---el cuerpo se recibe y se vuelca entero antes de decidir sobre la identidad, sin el tope que aplican los otros dos servicios--- y las diferencias menores donde lo idiomático no coincide con lo correcto. Y `\subsection{Comprobación de conformidad en el segundo entorno de ejecución}`, nueva: las dos piezas, por qué ninguna sustituye a la otra, y las dos reglas de construcción del arnés ---cuerpo vacío donde no se declara contenido, y un comparador que se detiene ante lo que no sabe comparar--- |
+| 8 — Validación | Cinco parches. Una **corrección** en §8.1: prohibir los campos adicionales no basta donde un esquema se compone de otro, con el único caso del contrato y su coste. En la misma sección, que la conformidad es **relativa a la lectura del validador** ---dos herramientas conformes discrepan sobre el mismo documento, y la exigencia de cuerpo vacío la sostenía la biblioteca y no la especificación---, y `\subsection{Un defecto que ninguna prueba de comportamiento podía observar}`, nueva, con el esquema publicado vacío y los doce defectos inyectados como control. En §8.4, la pregunta «bajo qué condición habría fallado» dirigida a la herramienta y no a la comprobación, más el perímetro del guardián de dependencias, que no audita el sistema de la imagen base; y al cierre del capítulo, dos fallos de instrumento, uno de ellos por segunda vez |
 
 ### La fase 1 NO está terminada
 
