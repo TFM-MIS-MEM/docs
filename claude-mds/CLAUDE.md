@@ -474,6 +474,12 @@ Webhooks salientes: firma HMAC-SHA256 sobre `timestamp + "." + cuerpo_crudo`
 - En FastAPI: define los modelos con Pydantic y compara el `/openapi.json`
   generado contra la especificación. Ese diff es el informe de discrepancias
   continuo.
+- **En OpenAPI 3.1, un esquema no se cierra con hermanos de `$ref`.**
+  `{"$ref": ..., "unevaluatedProperties": false}` es la forma idiomática y **no
+  cierra nada con openapi-core, que ignora los hermanos de `$ref` y calla**:
+  medido en `fr-commercial` (#33), un campo de más pasa. Se cierra envolviendo:
+  `{"allOf": [{"$ref": ...}], "unevaluatedProperties": false}`. Rige desde el
+  día en que un contrato se migre a 3.1; hoy los tres son 3.0.3.
 
 ---
 
@@ -516,3 +522,8 @@ crearon contra una versión previa del diseño.
    una decisión silenciosa tomada por conveniencia es un problema.
 4. **Al cambiar algo que aparezca en este fichero o en las especificaciones,
    avisar**, porque implica actualizar también la memoria.
+5. **El código de salida no se toma a través de un tubo.** En `orden | tail`, el
+   `$?` es el de `tail`, casi siempre 0. Pasó dos veces antes de escribirlo aquí
+   ---la segunda, en #33, una prueba de alcanzabilidad por la IP de LAN imprimió
+   `exit=0` y era el de `tail`---. Se ejecuta la orden sin tubería, o se guarda
+   su salida en un fichero y se imprime después, o se lee `PIPESTATUS`.
