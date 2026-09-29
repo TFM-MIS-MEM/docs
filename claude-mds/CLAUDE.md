@@ -489,6 +489,12 @@ Webhooks salientes: firma HMAC-SHA256 sobre `timestamp + "." + cuerpo_crudo`
   (`additionalProperties: true`), y `-> "Gallery"` revienta al generar el
   esquema. Lo que publica el esquema del modelo es **no anotarlo**. Anotarlo con
   un `TypedDict` también funciona, pero declara los campos por segunda vez.
+  **Dónde vive la garantía:** que Pydantic, ante un serializador sin anotar,
+  caiga en el esquema del modelo es comportamiento inferido, no una promesa
+  documentada. Lo que protege la regla es
+  `fr-commercial-microservice/tests/contract/test_shape.py`: si una versión
+  futura de Pydantic cambia de criterio, su rojo se lee como **«la regla
+  caducó»**, no como «el modelo está mal».
 
 ---
 

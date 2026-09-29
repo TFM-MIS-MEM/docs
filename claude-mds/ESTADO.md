@@ -3,8 +3,8 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 9: F1 (#33) en `fr-commercial-microservice#1`,
-> listo para revisión, con el arnés de contrato. Decidido además dónde vive la
+> **Última actualización:** sesión 9: F1 (#33) fusionado en
+> `fr-commercial-microservice` (`13db3fd`, PR #1), con el arnés de contrato. Decidido además dónde vive la
 > prohibición de campos no declarados: en el contrato (vía C), en el PR de #103.
 
 ---
@@ -758,8 +758,10 @@ escribir el servicio sino fijar el patrón que heredan 27 operaciones y
 demostrarlo una vez. Se hizo en dos paradas: la primera resolvió las dos
 decisiones que ESTADO dejaba pendientes; la segunda, dónde vive la prohibición
 de campos no declarados (el «punto 3», más abajo). El bootstrap avanzó entre
-una y otra, y el arnés se escribió después de la segunda. Queda en
-`fr-commercial-microservice#1`, listo para revisión.
+una y otra, y el arnés se escribió después de la segunda. Fusionado en `main`
+con commit de fusión (`13db3fd`, PR #1), para que los commits del rojo-verde que
+cita esta entrada sigan existiendo; la CI de `main` tras la fusión, en verde
+(`36564465692`, 197).
 
 **Decisión 1: la identidad va en una dependencia de FastAPI montada por router,
 no en un middleware.** Medido con seis montajes y los mismos casos. Un
@@ -871,31 +873,48 @@ ni con ella en blanco, y con ella sirve un `/openapi.json` idéntico al `.yaml`
 desde el contenedor, como `appuser`; `dev-up.sh` termina con `exit=0` con `fr`
 levantado a la vez ---un primer intento falló en los tres servicios por
 `DeadlineExceeded` de Docker Hub, antes de tocar puertos ni redes, y el registro
-tardó 77 s en servir `node:22-alpine`---; y la CI del PR, en verde tres veces,
+tardó 77 s en servir `node:22-alpine`---; y la CI del PR, en verde cuatro veces,
 siempre con `pip-audit` sobre el árbol de producción («No known vulnerabilities
 found») y cobertura 98,21 % sobre trinquete 98: `36422552795`, con el bootstrap,
 164 pruebas; `36552127024`, con el arnés, 197; `36558548472`, con la base
-anclada, 197. Sin MongoDB (contenedor parado, suite entera como en la CI): 161
-pasan, **37 errores** ---36 en la preparación de las pruebas que usan base, 1 en
-el desmontaje de la sesión---, **0 saltadas**, la cobertura cae a 77 y el
-trinquete también falla, y sale con 1. Falla en voz alta, pero despacio: 207 s,
-porque cada prueba agota por su cuenta los 5 s de selección de servidor.
+anclada, 197; `36564274985`, con la comprobación previa de MongoDB y sin capa de
+`apt-get`, 197. La auditoría es el equivalente de `pnpm audit --prod` gracias a
+que las dependencias se fijan con resúmenes (`requirements.txt`) y la imagen
+instala con `--require-hashes`: con los `>=` de la plantilla, la imagen resolvía
+el árbol al construirse y la auditoría habría mirado otro. `pip-audit` sale con
+1 tanto con avisos como sin red, así que el paso lleva el reintento de `auth`.
+
+**Sin MongoDB, la suite falla en voz alta y en segundos.** Medido con el
+contenedor parado y la suite entera como en la CI. **Antes:** 161 pasan, **37
+errores** ---36 en la preparación de las pruebas que usan base, 1 en el
+desmontaje de la sesión---, 0 saltadas, la cobertura cae a 77 y el trinquete
+también falla, sale con 1, en **207 s**: cada prueba agotaba por su cuenta los
+5 s de selección de servidor y repetía `ServerSelectionTimeoutError`.
+**Después**, con un `ping` único al abrir la sesión (`tests/conftest.py`): 161
+pasan, 36 errores que llevan todos el mismo mensaje ---«MongoDB no responde en
+fr-commercial-mongodb:27017 (TEST_MONGODB_URI): ServerSelectionTimeoutError.
+Levántelo antes de ejecutar las pruebas: …»---, sin error de desmontaje, 0
+saltadas, sale con 1, en **8 s**. Con base, la suite entera igual que antes: 197
+pasan. El mensaje se lanza fuera del `except`: dentro, pytest imprimía antes la
+excepción encadenada y lo enterraba.
 
 **La imagen base, anclada por resumen** en `Dockerfile` y `Dockerfile.dev`
 (`python:3.11-slim@sha256:e41613d4…`, Debian 13.7). El PR afirmaba que la imagen
 instala exactamente el árbol auditado, y era cierto para las dependencias de
-Python y falso para la base sobre la que corren: con la etiqueta sola, Trivy daba
-54 HIGH y 3 CRITICAL sobre la copia local del 31/08 y 44 HIGH sobre la recién
-bajada, según la caché. Actualizar la base pasa a ser un commit deliberado. No
-lo fija todo: la capa de `apt-get install curl` resuelve al construir. Y la CI
-no construye la imagen, de modo que el anclaje se verificó en local ---las dos
-construyen, la de producción responde `/health` 200---. Quién vigila la base, y
-con qué, queda en #108. La auditoría es el
-equivalente de `pnpm audit --prod` gracias a que las dependencias se fijan con
-resúmenes (`requirements.txt`) y la imagen instala con `--require-hashes`: con
-los `>=` de la plantilla, la imagen resolvía el árbol al construirse y la
-auditoría habría mirado otro. `pip-audit` sale con 1 tanto con avisos como sin
-red, así que el paso lleva el reintento de `auth`.
+Python y falso para la base sobre la que corren. **Las cifras de Trivy**, del
+2026-09-29, solo paquetes del sistema, HIGH y CRITICAL: la copia local de
+`python:3.11-slim` del 31/08 (Debian 13.6) daba **54 HIGH y 3 CRITICAL, 13 con
+arreglo publicado**; la etiqueta recién bajada, que es el resumen anclado, **44
+HIGH, 0 CRITICAL y ninguno con arreglo**; `node:22-alpine`, 0. El mismo `FROM`,
+dos resultados según la caché. Actualizar la base pasa a ser un commit
+deliberado. **Sin salvedad:** la sonda de salud del compose de desarrollo, lo
+único que usaba `curl`, pasa a `python -c` con `urllib`, y la capa de `apt-get`
+desaparece de las dos imágenes ---el historial solo muestra `apt-get` en las
+capas de la propia base, que el resumen fija---; el servicio queda `healthy`, y
+la sonda sale con 1 contra un puerto sin servicio y contra un `404`. La CI no
+construye la imagen, de modo que el anclaje se verificó en local: las dos
+construyen y la de producción responde `/health` 200. Quién vigila la base, y
+con qué, queda en #108.
 
 **Desviaciones de la plantilla, escritas en el código:** `pymongo.AsyncMongoClient`
 en lugar de `motor`, deprecado desde el 14/05/2026 según sus propios metadatos
@@ -909,10 +928,8 @@ el bloque comentado de `kong.yml`, que apunta a un contenedor que no existe
 (#104); `dev-up.sh` sin `fr` (#105); el MongoDB de `fr` sin autenticación, **que
 bloquea F4** (#106); `motor` en la plantilla (#107); que **ninguna de las tres
 CI audita el sistema operativo de la imagen base** ---`pip-audit` y `pnpm audit`
-no lo ven; medido con Trivy, `python:3.11-slim` de hoy lleva 44 HIGH sin arreglo
-publicado, la copia local del 31/08 llevaba además 3 CRITICAL y 13 arreglables,
-porque el `FROM` sin resumen hace depender el resultado de la caché, y
-`node:22-alpine`, 0--- (#108); y `CLAUDE.md` desfasado en dónde se evalúa el
+no lo ven; las cifras de Trivy, en «La imagen base, anclada por resumen»---
+(#108); y `CLAUDE.md` desfasado en dónde se evalúa el
 canal de API y dónde vive `fr-commercial.yaml` (#109). El alcance de la vía C
 quedó además escrito en #103, que es donde se ejecuta.
 
@@ -991,6 +1008,17 @@ con su gemelo correcto: `pageSize` con `le=100` da `[]`, sin él da exactamente
 `parámetro query:pageSize [maximum]: código=None contrato=100`; un modelo de
 respuesta con `extra='allow'` da `additionalProperties: código=True
 contrato=None`. Toda respuesta de las pruebas de `getGallery` pasa por el arnés.
+
+**Para F3, un punto ciego del guardián, escrito en `test_identity_guard.py`.**
+El guardián solo ve lo que sale en `app.openapi()`. Medido: una ruta montada con
+`include_in_schema=False` no aparece ahí, así que ni rompe la igualdad con
+`IMPLEMENTED` ni entra en la prueba de `401`; sigue dando `401`, porque la
+dependencia está en el router, pero ninguna prueba lo afirma. `IMPLEMENTED` es
+una lista literal a propósito: si se calculara, el guardián compararía lo
+servido consigo mismo. Y en el docstring de `identity.py`, el coste del orden
+frente a Express: el orden es el mismo, el coste no ---`express.json()` corta en
+100 kB por omisión y en 10 MB en `auth` y `pricing`; aquí se leyeron 50 MiB en
+memoria antes del `401`, sin tope---.
 
 **La comparación cazó un defecto real en su primera ejecución.** El
 `model_serializer` de `Gallery` llevaba `-> Any`, y Pydantic deriva de esa
