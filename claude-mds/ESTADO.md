@@ -835,6 +835,12 @@ omisión se nombra campo a campo.
 | `e2d81e2` pruebas, contra la plantilla | 1 pasa · 3 ficheros sin colección · 27 `TypeError: create_app() takes 0 positional arguments` |
 | `c0362f0` núcleo | 139 pasan · 25 fallos, una causa: `getGallery` no existe |
 | `8da3996` getGallery | 164 pasan |
+| `ac068e7` arnés | 191 pasan · 6 fallos en `test_shape.py`, una causa: el esquema generado de `Gallery` era `{}` |
+| `8166f23` corrección del modelo | 197 pasan |
+
+Las dos últimas filas son el rojo-verde más informativo de la sesión: la causa
+del rojo no era código que faltaba, sino un defecto real que ninguna prueba de
+extremo a extremo veía (véase «La comparación cazó un defecto real»).
 
 **Guardianes que pueden fallar, comprobado.** Once defectos inyectados sobre una
 copia, once rojos, cada uno en su prueba. El más instructivo: con el campo del
@@ -865,9 +871,26 @@ ni con ella en blanco, y con ella sirve un `/openapi.json` idéntico al `.yaml`
 desde el contenedor, como `appuser`; `dev-up.sh` termina con `exit=0` con `fr`
 levantado a la vez ---un primer intento falló en los tres servicios por
 `DeadlineExceeded` de Docker Hub, antes de tocar puertos ni redes, y el registro
-tardó 77 s en servir `node:22-alpine`---; la CI del PR, en verde, con
-`pip-audit` sobre el árbol de producción («No known vulnerabilities found»),
-164 pruebas y cobertura 98,21 % sobre trinquete 98. La auditoría es el
+tardó 77 s en servir `node:22-alpine`---; y la CI del PR, en verde tres veces,
+siempre con `pip-audit` sobre el árbol de producción («No known vulnerabilities
+found») y cobertura 98,21 % sobre trinquete 98: `36422552795`, con el bootstrap,
+164 pruebas; `36552127024`, con el arnés, 197; `36558548472`, con la base
+anclada, 197. Sin MongoDB (contenedor parado, suite entera como en la CI): 161
+pasan, **37 errores** ---36 en la preparación de las pruebas que usan base, 1 en
+el desmontaje de la sesión---, **0 saltadas**, la cobertura cae a 77 y el
+trinquete también falla, y sale con 1. Falla en voz alta, pero despacio: 207 s,
+porque cada prueba agota por su cuenta los 5 s de selección de servidor.
+
+**La imagen base, anclada por resumen** en `Dockerfile` y `Dockerfile.dev`
+(`python:3.11-slim@sha256:e41613d4…`, Debian 13.7). El PR afirmaba que la imagen
+instala exactamente el árbol auditado, y era cierto para las dependencias de
+Python y falso para la base sobre la que corren: con la etiqueta sola, Trivy daba
+54 HIGH y 3 CRITICAL sobre la copia local del 31/08 y 44 HIGH sobre la recién
+bajada, según la caché. Actualizar la base pasa a ser un commit deliberado. No
+lo fija todo: la capa de `apt-get install curl` resuelve al construir. Y la CI
+no construye la imagen, de modo que el anclaje se verificó en local ---las dos
+construyen, la de producción responde `/health` 200---. Quién vigila la base, y
+con qué, queda en #108. La auditoría es el
 equivalente de `pnpm audit --prod` gracias a que las dependencias se fijan con
 resúmenes (`requirements.txt`) y la imagen instala con `--require-hashes`: con
 los `>=` de la plantilla, la imagen resolvía el árbol al construirse y la
