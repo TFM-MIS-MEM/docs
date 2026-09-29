@@ -480,6 +480,15 @@ Webhooks salientes: firma HMAC-SHA256 sobre `timestamp + "." + cuerpo_crudo`
   medido en `fr-commercial` (#33), un campo de más pasa. Se cierra envolviendo:
   `{"allOf": [{"$ref": ...}], "unevaluatedProperties": false}`. Rige desde el
   día en que un contrato se migre a 3.1; hoy los tres son 3.0.3.
+- **El `model_serializer` de Pydantic no lleva `-> Any`.** Pydantic deriva de la
+  anotación de retorno el esquema de SERIALIZACIÓN, y FastAPI publica ese
+  esquema. Con `Any` el esquema publicado sale `{}` y las respuestas siguen
+  saliendo bien, así que ninguna prueba de extremo a extremo lo ve; lo cazó la
+  comparación estática en #33. «Anotarlo con el tipo concreto» **tampoco
+  sirve**, medido: `-> dict` o `-> dict[str, Any]` publica un objeto abierto
+  (`additionalProperties: true`), y `-> "Gallery"` revienta al generar el
+  esquema. Lo que publica el esquema del modelo es **no anotarlo**. Anotarlo con
+  un `TypedDict` también funciona, pero declara los campos por segunda vez.
 
 ---
 
