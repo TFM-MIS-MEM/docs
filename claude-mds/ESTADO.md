@@ -3,8 +3,9 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** cierre de la sesión 8 (#95 cerrado; `auth` deja de
-> ser alcanzable fuera de la pasarela y de arrancar con un secreto publicado).
+> **Última actualización:** sesión 9: F1 (#33) en `fr-commercial-microservice#1`,
+> listo para revisión, con el arnés de contrato. Decidido además dónde vive la
+> prohibición de campos no declarados: en el contrato (vía C), en el PR de #103.
 
 ---
 
@@ -752,6 +753,233 @@ el error.
 | 6 — Implementación | Cuatro parches, uno de ellos **corrección**. La corrección retira de §6.3.2 que la configuración local «únicamente evita que el entorno de desarrollo contradiga esa premisa» y la sustituye por lo medido: la reduce sin llegar a impedirla. Lo nuevo, en la misma subsección: que **restringir al bucle local es publicar al anfitrión entero**, con las tres vías por las que sigue alcanzándose y por qué la asimetría entre entornos es deliberada y no copiada; y que el coste atribuido a la alternativa descartada ---un secreto replicado en tantos ficheros de configuración como servicios--- dejó de ser hipotético, por vía independiente de la decisión que lo invocó, con el enlace a §8.1.3. Y `\subsection{Configuración que el servicio rechaza asumir}`, nueva: el barrido de los nueve parámetros, los tres que pierden su valor supletorio por ser silenciosamente incorrectos después, el criterio de que la guarda **rechaza lo que consta público y no lo que parece débil**, y que ha de existir en dos planos o no existe |
 | 8 — Validación | Tres parches. `\subsection{Una medición que no reprodujo lo que se esperaba de ella}`, nueva: el procedimiento se aplicó a confirmar una vulnerabilidad enunciada de antemano y devolvió un rechazo, porque el componente probado era el emisor de las credenciales y no un consumidor de identidad; **una no reproducción es un resultado y no un defecto del procedimiento**. En §8.4, el cierre en indicativo de un argumento que la sesión 6 solo pudo dejar en condicional ---un guardián mantenido en verde detectó un aviso que nadie buscaba, en la primera ejecución posterior a su difusión---, y la regla de diseñar la medición para que pueda fallar: **una medición idéntica entre el antes y el después solo resulta concluyente si lo que se conserva idéntico no es precisamente aquello que el cambio modifica** |
 
+**Sesión 9 — F1 (#33), el bootstrap de `fr-commercial`.** El objeto no era
+escribir el servicio sino fijar el patrón que heredan 27 operaciones y
+demostrarlo una vez. Se hizo en dos paradas: la primera resolvió las dos
+decisiones que ESTADO dejaba pendientes; la segunda, dónde vive la prohibición
+de campos no declarados (el «punto 3», más abajo). El bootstrap avanzó entre
+una y otra, y el arnés se escribió después de la segunda. Queda en
+`fr-commercial-microservice#1`, listo para revisión.
+
+**Decisión 1: la identidad va en una dependencia de FastAPI montada por router,
+no en un middleware.** Medido con seis montajes y los mismos casos. Un
+middleware corre fuera de la capa de excepciones: si lanza el error de dominio,
+sale `500 text/plain`, y con el manejador genérico, `500` en JSON; para cumplir
+`ErrorReport` tiene que escribir su propio cuerpo, un segundo emisor del
+esquema, que es la clase de divergencia de #66 y #79. La dependencia lanza y la
+atiende el mismo manejador que a todo lo demás. Tres diferencias con la
+referencia de Express, todas medidas:
+
+- `Header()` no sirve: la ausencia sale `422`, acepta un `X-Account-Id` en
+  blanco y duplicados, y mete las tres cabeceras como parámetros en el
+  `/openapi.json` generado.
+- **Duplicados.** `request.headers.get()` devuelve la primera: `X-Role: ADMIN`
+  más `X-Role: CUSTOMER` daba `ADMIN`. Se exige exactamente un valor con
+  `getlist`. La referencia de `pricing` rechaza la `X-Role` repetida **por
+  accidente** ---Node une los valores con `", "` y la unión cae fuera del
+  conjunto--- y **acepta un `X-Account-Id` repetido como la cuenta `"acc1,
+  acc2"`**: #101. `fr-commercial` es en eso más estricto que su referencia.
+- **Orden respecto al cuerpo.** FastAPI lee el cuerpo antes de resolver las
+  dependencias. Medido con 50 MiB sin cabeceras: con `UploadFile = File(...)`,
+  **50 MiB leídos y volcados a disco** (`SpooledTemporaryFile`, a disco por
+  encima de 1 MiB) **antes del `401`**; con un cuerpo JSON, 50 MiB leídos en
+  memoria; leyendo `request.stream()` después de la dependencia, cero. **Es un
+  coste que hereda F5** (#37) y toda operación multipart ---F4, F8, F12---: por
+  el camino legítimo no se paga, porque la pasarela rechaza antes de proxiar, y
+  lo paga quien alcance el servicio saltándose la pasarela, que es justo lo que
+  la topología impide. Si F5 no quiere depender solo de eso, la vía medida es
+  leer el fichero del flujo después de la identidad y no declararlo como
+  parámetro.
+
+**Decisión 2: openapi-core para validar cada respuesta, más la comparación del
+`/openapi.json` generado contra el `.yaml`. Schemathesis no.** Con un servicio
+«mentiroso» que sirve respuestas deliberadamente no conformes contra el contrato
+sin tocar, `APIOperation.validate_response` de Schemathesis ---el análogo
+natural de `toSatisfyApiSpec()`--- **deja pasar un `422`, un `400` y un `500` no
+declarados y un tipo de contenido erróneo**, por diseño: su validador devuelve
+`None` cuando el estado no está documentado. Con todas sus comprobaciones por
+omisión marca como fallo una respuesta conforme (`ignored_auth`), falso positivo
+estructural en un servicio que no verifica credenciales. openapi-core, en una
+sola llamada y por omisión, caza el estado no declarado, el tipo de contenido
+ajeno, el obligatorio que falta, el tipo, el formato y el `enum`, y es el único
+que rechaza `frozenReason: null`, con razón (#103). **No caza dos cosas:** el
+campo de más ---ningún esquema del contrato lo prohíbe, y entonces es
+conforme--- ni el cuerpo en una respuesta que no declara `content`, como un `204`
+con cuerpo, que jest-openapi sí cazaba. La comparación estática hace falta además porque es lo único que ve el
+lado de la petición: con `pageSize` sin su cota de 100, `pageSize=1000` da un
+`200` **conforme**, y solo la comparación lo delata.
+
+**Desde F3 (#35), un caso negativo por cada parámetro acotado.** La validación
+de respuestas es ciega a lo que el servicio acepta; cada cota del contrato
+(`maximum`, `enum`, `minimum`) necesita su petición fuera de rango en la
+batería. Y ningún listado puede cumplirlo hasta que #103 declare el `400`:
+medido, para `pageSize=101` no existe implementación conforme ---aceptar,
+`400` y `422` fallan los tres---.
+
+**La operación de extremo a extremo es `getGallery`**: RETRIEVAL, cero unidades,
+sin plan ni Redis ni parámetros de consulta, y con `X-Account-Id` como lo único
+que decide entre `200` y `404`. La galería de otra cuenta es `404`, **también
+para `ADMIN`**, e idéntico al de una inexistente: el contrato reserva su `403` a
+la pasarela, un `403` confirmaría que la galería existe, y `ADMIN` gobierna la
+gestión de cuentas en `auth`, no los datos biométricos de otros clientes. Los
+campos opcionales se omiten uno a uno, sin `exclude_none` global: ninguno de los
+tres opcionales de `Gallery` admite `null`. La frase vale para `Gallery`, no para
+el contrato: `Identity.externalId`, `WebhookEndpoint.lastDeliveryAt` y cuatro
+campos de `WebhookDelivery` sí lo admiten, y es exactamente por lo que la
+omisión se nombra campo a campo.
+
+**Evidencia, por commit** (rojo-verde registrado):
+
+| Commit | Resultado |
+|---|---|
+| `e2d81e2` pruebas, contra la plantilla | 1 pasa · 3 ficheros sin colección · 27 `TypeError: create_app() takes 0 positional arguments` |
+| `c0362f0` núcleo | 139 pasan · 25 fallos, una causa: `getGallery` no existe |
+| `8da3996` getGallery | 164 pasan |
+
+**Guardianes que pueden fallar, comprobado.** Once defectos inyectados sobre una
+copia, once rojos, cada uno en su prueba. El más instructivo: con el campo del
+filtro mal escrito (`account_id`), los `404` seguirían pasando; los pone rojos
+**solo** que cada `404` va emparejado con el `200` del propietario sobre la misma
+galería.
+
+**El determinismo se sostiene en el mecanismo**, no en las repeticiones: un
+`TestClient` por prueba abierto como gestor de contexto ---su `lifespan` abre y
+cierra la conexión del servicio---, siembra por un cliente síncrono que ha
+escrito antes de que la petición salga, base de datos única por sesión y
+colecciones borradas antes de cada prueba, sin orden entre ellas ni reloj ni
+aleatoriedad en lo comparado. Las tandas acompañan: 30 × «164 passed» antes del
+arnés, 30 × «197 passed» después.
+
+**Dos guardias que fallaban por el motivo equivocado, las dos mías y cazadas
+antes de darlas por buenas.** El `:?` del compose de producción llevaba «: » en
+el mensaje, YAML leía el elemento como un mapa y el compose fallaba **también con
+la variable definida**: la comprobación de «ausente → exit=1» pasaba sin
+significar nada. Se detectó por medir también el caso con valor. Y la prueba del
+bucle local por la IP de LAN imprimió `exit=0` porque era el código de `tail`,
+no el de `curl`; repetida sin tubería, `curl_exit=7`, y con control: esa misma IP
+sí alcanza el 8000 de Kong. Es el patrón de la sesión 7: cuando la medición y el
+instrumento comparten intérprete, el instrumento entra en lo medido.
+
+**Lo demás, verificado:** la imagen de producción no arranca sin `MONGODB_URI`
+ni con ella en blanco, y con ella sirve un `/openapi.json` idéntico al `.yaml`
+desde el contenedor, como `appuser`; `dev-up.sh` termina con `exit=0` con `fr`
+levantado a la vez ---un primer intento falló en los tres servicios por
+`DeadlineExceeded` de Docker Hub, antes de tocar puertos ni redes, y el registro
+tardó 77 s en servir `node:22-alpine`---; la CI del PR, en verde, con
+`pip-audit` sobre el árbol de producción («No known vulnerabilities found»),
+164 pruebas y cobertura 98,21 % sobre trinquete 98. La auditoría es el
+equivalente de `pnpm audit --prod` gracias a que las dependencias se fijan con
+resúmenes (`requirements.txt`) y la imagen instala con `--require-hashes`: con
+los `>=` de la plantilla, la imagen resolvía el árbol al construirse y la
+auditoría habría mirado otro. `pip-audit` sale con 1 tanto con avisos como sin
+red, así que el paso lleva el reintento de `auth`.
+
+**Desviaciones de la plantilla, escritas en el código:** `pymongo.AsyncMongoClient`
+en lugar de `motor`, deprecado desde el 14/05/2026 según sus propios metadatos
+(#107); fuera `slowapi` ---detrás de Kong era un único cupo para todos---, fuera
+`CORSMiddleware` con `["*"]` y credenciales, fuera `/api/v1`.
+
+De la sesión salen **nueve issues, #101 a #109**, ninguno arreglado de paso: el
+`X-Account-Id` duplicado y el `cors()` de `pricing` (#101, #102); los dos
+defectos del contrato de `fr`, a corregir en **un solo PR antes de F3** (#103);
+el bloque comentado de `kong.yml`, que apunta a un contenedor que no existe
+(#104); `dev-up.sh` sin `fr` (#105); el MongoDB de `fr` sin autenticación, **que
+bloquea F4** (#106); `motor` en la plantilla (#107); que **ninguna de las tres
+CI audita el sistema operativo de la imagen base** ---`pip-audit` y `pnpm audit`
+no lo ven; medido con Trivy, `python:3.11-slim` de hoy lleva 44 HIGH sin arreglo
+publicado, la copia local del 31/08 llevaba además 3 CRITICAL y 13 arreglables,
+porque el `FROM` sin resumen hace depender el resultado de la caché, y
+`node:22-alpine`, 0--- (#108); y `CLAUDE.md` desfasado en dónde se evalúa el
+canal de API y dónde vive `fr-commercial.yaml` (#109). El alcance de la vía C
+quedó además escrito en #103, que es donde se ejecuta.
+
+**Punto 3: la prohibición de campos no declarados va en el contrato (vía C).**
+Ninguno de los 36 esquemas de objeto del contrato cierra `additionalProperties`
+---el único que lo menciona, `ErrorReport.details`, lo declara abierto---, así
+que ningún validador puede cazar un campo de más: es #88 extendido a todo el
+contrato. Se midieron cuatro vías:
+
+- **A, un auxiliar en el arnés** que trate como cerrado lo que el esquema no
+  abre. Es un segundo contrato, invisible para quien consume el primero, y el
+  riesgo no es de principio: el auxiliar escrito para la decisión 2 **no sabía
+  de `allOf`** y dejaba pasar en silencio un `accountId` en el `201` de
+  `createWebhook`; cerrando cada subesquema por separado, rechaza el `201`
+  legítimo por sus ocho campos. Solo lo hace bien uniendo las propiedades de
+  los miembros, que es reescribir `unevaluatedProperties` a mano. La
+  justificación de §8.1 para una comprobación explícita ---«el esquema no puede
+  prohibirlo»--- no se sostiene: C lo prohíbe, medido.
+- **B, estructural**: filtrado por `response_model`, comparación estática de
+  las 2xx y lint (TID251). **Descartada por su agujero:** los errores no pasan
+  por `response_model` y `details: dict[str, Any]` no se puede filtrar por
+  construcción, de modo que deja a una heurística justo el camino por el que
+  filtró #79. Además la regla no queda escrita en ninguna parte: sale del
+  `extra="ignore"` por omisión de Pydantic más tres mecanismos que se tapan los
+  huecos unos a otros (TID251 no ve `extra='allow'`, `response_model=dict` ni la
+  ausencia de modelo; la comparación sí, pero no ve un `JSONResponse` a mano).
+- **C, cerrar en el contrato** (`additionalProperties: false`). De los 36, 35
+  se pueden cerrar ---`details` es abierto a propósito--- y 34 se cierran sin
+  más. **Hay una sola composición `allOf` de más de un miembro en todo
+  el contrato**: el `201` de `createWebhook`, `allOf: [WebhookEndpoint,
+  {secret}]`. Cerrar `WebhookEndpoint` tal cual rechaza el `201` legítimo
+  («Additional properties are not allowed ('secret' was unexpected)»). El
+  arreglo en 3.0.3, medido: un `WebhookEndpointBase` abierto con las
+  definiciones; `WebhookEndpoint` como `allOf: [Base]` más los **7 nombres** en
+  `properties` y `additionalProperties: false`; el `201` como `allOf: [Base,
+  {secret}]` más los **8 nombres**. Su coste son dos listas de nombres que
+  mantener, y el olvido falla en voz alta. La frase de §8.1 «basta prohibir los
+  campos adicionales» es falsa tal como está: vale para 34 esquemas y para este
+  exige reestructurar.
+- **D, migrar el contrato a 3.1** y cerrar con `unevaluatedProperties`. Sin
+  nombres repetidos y resolviendo de paso el `nullable` de #103, **pero con una
+  trampa medida: openapi-core ignora los hermanos de `$ref`**. La forma
+  idiomática, `{"$ref": Base, "unevaluatedProperties": false}`, no cierra nada
+  y calla: un `secret` en `getWebhook` pasa. Solo cierra envolviendo,
+  `{"allOf": [{"$ref": Base}], "unevaluatedProperties": false}`.
+
+**Decidido C, en 3.0.3.** Alcance: los esquemas propios de `fr`, de respuesta y
+de petición. **`ErrorReport` se queda fuera y espera a #88**: es idéntico en los
+tres contratos y cerrarlo solo en `fr` rompe esa igualdad. Cerrar los cuerpos de
+petición obliga a `extra='forbid'` en los modelos de entrada ---campo de más,
+`400`, que declaran todas las operaciones con cuerpo--- y también en los de
+respuesta, porque si no la comparación estática da `contrato=False` frente a
+`código=None` en cada esquema. **C no entra en F1**: va en el PR único de #103,
+antes de F3, con la DoD y la memoria detrás. La contrapartida se escribe en ese
+PR: cerrar las respuestas cuesta compatibilidad hacia delante ---un cliente que
+valide contra el contrato rechazará un campo que se añada---, y se paga porque
+añadir un campo ya es, por método, un cambio de contrato. Pendiente de medir para
+cuando se plantee D: si `jest-openapi` admite 3.1, porque migrar un contrato solo
+deja los tres sin comparar.
+
+**El arnés, en `tests/contract/`.** `harness.py`: openapi-core sobre el contrato
+sin tocar, con un adaptador de httpx que además exige cuerpo vacío donde la
+respuesta no declara `content`, y `assert_bare_error`, la única comprobación
+explícita que queda y que es **estructural**: un error que no es de dominio lleva
+exactamente `code` y `message`. No busca marcas como `stack` en el cuerpo.
+`shape.py`: la comparación del `/openapi.json` generado contra el canónico ---
+parámetros y respuestas 2xx de cada operación implementada; los estados de error
+no, que ahí son ruido---, con un normalizador de 3.1 a 3.0.3 que **se niega**
+ante una clave que no sabe comparar (`Field(gt=-1)` → `exclusiveMinimum`) y ante
+cuerpos de petición, hasta F3. `test_harness.py` es el **servicio mentiroso**,
+permanente: 20 respuestas servidas por HTTP en las rutas canónicas, con el
+veredicto afirmado en los dos sentidos. El campo de más en `Gallery` está entre
+las que **pasan**, con el porqué escrito: cuando #103 cierre los esquemas, esa
+fila se pondrá roja sola. `test_shape.py` lleva cada control negativo emparejado
+con su gemelo correcto: `pageSize` con `le=100` da `[]`, sin él da exactamente
+`parámetro query:pageSize [maximum]: código=None contrato=100`; un modelo de
+respuesta con `extra='allow'` da `additionalProperties: código=True
+contrato=None`. Toda respuesta de las pruebas de `getGallery` pasa por el arnés.
+
+**La comparación cazó un defecto real en su primera ejecución.** El
+`model_serializer` de `Gallery` llevaba `-> Any`, y Pydantic deriva de esa
+anotación el esquema de serialización, que es el que FastAPI publica: el esquema
+generado de `Gallery` era `{}`. Las respuestas salían bien y ninguna prueba de
+extremo a extremo lo veía. Después, doce defectos inyectados sobre una copia
+---en el arnés, en la comparación y en el servicio, entre ellos volver a poner
+el `-> Any`---, doce rojos. El que justifica la
+comparación: con `extra='allow'` en el modelo del servicio, **ninguna** prueba
+de extremo a extremo falla, porque la respuesta se construye campo a campo; solo
+la comparación lo ve.
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -850,8 +1078,9 @@ tiempo restante.
 operaciones del contrato declaran ya las respuestas de pasarela, de modo que
 escribirlas no obliga a repasarlas después.
 
-Quedan dos decisiones **antes de arrancar**, ambas consecuencia de que
-`fr-commercial` sea el primer servicio en Python:
+~~Quedan dos decisiones **antes de arrancar**~~ **Resueltas en la sesión 9**
+---dependencia; openapi-core más comparación estática---. Se conserva el
+enunciado original:
 
 - **Cómo se traduce a Python la implementación de referencia del consumo de
   identidad.** El patrón está fijado y probado, pero en Express: middleware que
@@ -1043,6 +1272,26 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
 
 ## Pendiente de decidir
 
+- ~~**Dónde vive la prohibición de campos no declarados en `fr-commercial`.**~~
+  **Decidido en la sesión 9: en el contrato (vía C), en el PR de #103.** Ningún
+  esquema del contrato cierra `additionalProperties` (36 esquemas de objeto; el
+  único que lo menciona, `ErrorReport.details`, lo declara abierto). Las cuatro
+  vías medidas, sus números y el alcance decidido están en la entrada de la
+  sesión 9.
+- **Si `jest-openapi` admite OpenAPI 3.1.** Pendiente de medir, y solo cuando se
+  plantee migrar el contrato de `fr` (vía D del punto 3): migrar un contrato solo
+  deja los tres sin comparar entre sí.
+- **Las 5 operaciones con `enrollmentToken` y las 2 solo `apiKeyAuth`.** La
+  dependencia de identidad de F1 exige las tres cabeceras de la pasarela en
+  todas. Pero `createIdentity`, `addFace`, `verifyAgainstIdentity` y las dos de
+  prueba de vida admiten además un token de enrolamiento que `space-auth` no
+  resuelve: por la pasarela, hoy, una petición que solo lleve ese token muere
+  en un `401` de Kong, y si pasara llegaría sin `X-Account-Id`. Y
+  `extractEmbedding` y `createEnrollmentToken` admiten solo el canal de API, así
+  que una petición del canal web tendría que rechazarse en el servicio, con un
+  código que el contrato no fija. Las dos cosas se deciden con F11 (#43) y en la
+  sesión que conecte `fr` a la pasarela (#104); la dependencia se diseñó para
+  admitir política por operación precisamente por esto.
 - **Qué hacer con `RESEND_API_KEY`.** No puede ser obligatoria en desarrollo
   ---se trabaja sin ella y el arnés usa una falsa---, de modo que la guarda de
   arranque que se le aplicó a las demás no le vale tal cual. ¿Se exige sólo con
