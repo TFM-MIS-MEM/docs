@@ -3,10 +3,9 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 9: F1 (#33) fusionado en
-> `fr-commercial-microservice` (`13db3fd`, PR #1), con el arnés de contrato.
-> Decidido además dónde vive la prohibición de campos no declarados: en el
-> contrato (vía C), en el PR de #103.
+> **Última actualización:** sesión 10: #103, el contrato de `fr-commercial`
+> cerrado (vía C), con `400` en los listados y los dos `nullable` corregidos.
+> PR #2 de `fr-commercial-microservice`, pendiente de fusión.
 
 ---
 
@@ -968,7 +967,14 @@ contrato. Se midieron cuatro vías:
   definiciones; `WebhookEndpoint` como `allOf: [Base]` más los **7 nombres** en
   `properties` y `additionalProperties: false`; el `201` como `allOf: [Base,
   {secret}]` más los **8 nombres**. Su coste son dos listas de nombres que
-  mantener, y el olvido falla en voz alta. La frase de §8.1 «basta prohibir los
+  mantener, ~~y el olvido falla en voz alta~~. **Falso en la dirección
+  peligrosa, medido en la sesión 10:** un nombre que falta en una lista hace
+  ruido solo si alguna prueba emite ese campo; un nombre que sobra se admite
+  con cualquier valor y el validador calla ---`secret` de más en la lista de
+  `WebhookEndpoint` y un `getWebhook` con el secreto **pasa**---. Lo ve solo
+  la guardia estática de `test_closure.py`. Y el recuento también estaba mal:
+  el miembro `{secret}` no se cierra directamente (véase la sesión 10). La
+  frase de §8.1 «basta prohibir los
   campos adicionales» es falsa tal como está: vale para 34 esquemas y para este
   exige reestructurar.
 - **D, migrar el contrato a 3.1** y cerrar con `unevaluatedProperties`. Sin
@@ -1051,6 +1057,134 @@ sesión.
 | 4 — Diseño del servicio | Un parche, `\subsection{Autorización sobre los recursos de la cuenta}`, nueva en §4.8. La autorización se reduce a la pertenencia del recurso a la cuenta; el recurso ajeno se responde como inexistente y **con idéntico contenido**, porque distinguirlos convierte cada operación en un oráculo de existencia sobre los datos de otro cliente, que en un servicio biométrico es un indicio sobre las personas registradas; y el rol administrativo gobierna el ciclo de vida de las cuentas, no los datos que cada cliente deposita |
 | 6 — Implementación | Dos parches. §6.3.2 gana la traducción de la implementación de referencia al segundo entorno de ejecución: por qué el rechazo vive en una dependencia y no en una intercepción previa ---un solo emisor del informe de error---, el coste que eso impone a ocho de las veintisiete operaciones ---el cuerpo se recibe y se vuelca entero antes de decidir sobre la identidad, sin el tope que aplican los otros dos servicios--- y las diferencias menores donde lo idiomático no coincide con lo correcto. Y `\subsection{Comprobación de conformidad en el segundo entorno de ejecución}`, nueva: las dos piezas, por qué ninguna sustituye a la otra, y las dos reglas de construcción del arnés ---cuerpo vacío donde no se declara contenido, y un comparador que se detiene ante lo que no sabe comparar--- |
 | 8 — Validación | Cinco parches. Una **corrección** en §8.1: prohibir los campos adicionales no basta donde un esquema se compone de otro, con el único caso del contrato y su coste. En la misma sección, que la conformidad es **relativa a la lectura del validador** ---dos herramientas conformes discrepan sobre el mismo documento, y la exigencia de cuerpo vacío la sostenía la biblioteca y no la especificación---, y `\subsection{Un defecto que ninguna prueba de comportamiento podía observar}`, nueva, con el esquema publicado vacío y los doce defectos inyectados como control. En §8.4, la pregunta «bajo qué condición habría fallado» dirigida a la herramienta y no a la comprobación, más el perímetro del guardián de dependencias, que no audita el sistema de la imagen base; y al cierre del capítulo, dos fallos de instrumento, uno de ellos por segunda vez |
+
+**Sesión 10 — #103, la primera cuyo objeto es el contrato y no el código.** La
+regla del proyecto ---contrato, luego DoD, luego memoria--- se había citado ocho
+veces sin ejercerse en ese orden, porque hasta ahora los contratos no se
+tocaban. Aquí el `.yaml` cambió primero, y el código y las pruebas fueron
+detrás. Resultado: `fr-commercial-microservice` PR #2 (rama `fase2/103`, cuatro
+commits, **pendiente de fusión**), sin ninguna operación nueva: el guardián de
+montaje sigue exigiendo exactamente `{getGallery}`. La prueba de que el cambio
+sirvió: un `getWebhook` que devolviera el secreto del punto de notificación
+**era una respuesta conforme** y hoy la caza openapi-core, sin una línea de
+código nuestro.
+
+**Tres cambios en el contrato, en un solo PR:**
+
+- **`400` en los tres listados** (`listGalleries`, `listIdentities`,
+  `listWebhookDeliveries`). El hueco era mayor que `pageSize`: también `page`,
+  con su mínimo, y el `status` de las entregas. Rechazar, no acotar en silencio,
+  por la regla de #68: rechazar es una decisión, y las decisiones se declaran.
+- **Los dos `nullable` sin `type`.** `frozenReason` **se omite y pierde el
+  `nullable`**, con «presente si y solo si `status` es `frozen`» en prosa,
+  porque el esquema no puede expresarlo. Emitir `null` sin meterlo en `required`
+  habría dejado tres estados para dos significados. El cierre no cambia la
+  omisión: prohíbe los nombres no declarados, no exige los declarados. La
+  `identity` de `searchGallery` **se queda en `null` y entra en `required`** (el
+  mismo argumento), como `anyOf: [Identity, NullValue]`. `NullValue` es `type:
+  string` + `nullable` + `enum: [null]`, justificado con el texto de 3.0.3 y no
+  con que el validador lo acepte ---el validador aceptaba las cuatro formas
+  candidatas---. Con `type: object` habría hecho falta una excepción en
+  `test_closure`, sin que el `type` cambiara nada al validar. **No se llama
+  `Null`:** en YAML 1.1 esa clave sin comillas se carga como `None`; medido, el
+  componente se quedaba sin nombre y `openapi-spec-validator` reventaba con
+  `TypeError`. Estado medido con las dos herramientas: `frozenReason: null`,
+  antes `oc=CAZA st=pasa`, ahora `CAZA/CAZA`; `identity: null`, antes `oc=CAZA
+  st=pasa`, ahora `pasa/pasa`.
+- **El cierre de los esquemas, vía C.** El recuento de la sesión 9 tenía **un**
+  error: contó el miembro `{secret}` como cierre directo, y cerrarlo solo
+  rechaza el `201` legítimo (`'status', 'events', 'url', 'createdAt', 'id' were
+  unexpected`). Las cifras, medidas sobre el fichero: **36** esquemas de objeto;
+  **35** cerrables; **33** directos; **2** solo reestructurando (las dos partes
+  del compuesto); **32** dentro del alcance de #103 (los 33 menos `ErrorReport`,
+  que espera a #88). **Después: 37 esquemas, 34 cerrados, 3 abiertos**
+  (`WebhookEndpointBase`, `ErrorReport`, `details`). El compuesto, en **forma
+  B**: `WebhookEndpointBase` abierta con las definiciones; `WebhookEndpoint` y
+  el `201` como `allOf: [Base]` más los nombres y `additionalProperties: false`,
+  con `secret` **definido en el propio `201`** y en su `required` (hasta ahora
+  un `201` sin secreto validaba). Quedan 7 nombres duplicados entre las dos
+  listas. **`info.version` no se toca, por decisión:** el servicio no tiene
+  consumidores, y el versionado del contrato empieza a importar con el primero.
+  Está escrito en la sección «Esquemas cerrados» de `info.description`, junto a
+  la contrapartida (compatibilidad hacia delante).
+
+**El olvido de una lista, en sus dos direcciones.** Cinco mutaciones de la forma
+B: con un nombre de la base que falta en una lista, o en las dos, el validador
+rechaza la respuesta legítima (`'description' was unexpected`), pero solo si
+alguna prueba emite ese campo, y hoy no hay implementación de webhooks. Con un
+nombre que sobra ---`secret` en la lista de `WebhookEndpoint`, `accountId` en la
+del `201`--- **se admite con cualquier valor y el validador calla**. Las cinco
+las pone en rojo `test_closure.py`, que compara las listas con la base en los
+dos sentidos. Eso deja caducada la afirmación de la sesión 9 de que «el olvido
+falla en voz alta» (anotada allí).
+
+**El campo de más en los cuerpos de petición: alcance exacto.** En cuerpos JSON,
+**probado**: `400` conforme (`test_rejections.py`). En los **8 cuerpos
+`multipart/form-data`**, es una **obligación del contrato** que vigila
+`test_closure.py` y que tienen que cumplir F4, F5, F8 y F12. No se prueba aquí
+porque `python-multipart` ---que FastAPI exige para `Form` y `File`--- **no está
+en el árbol fijado**. El mecanismo, medido con FastAPI 0.141.1: `Form()` y
+`File()` sueltos **ignoran** la parte de más (`200`); un modelo con
+`extra="forbid"` anotado como `Annotated[Modelo, File()]` da `400` y publica
+`multipart/form-data`; con `Form()` también rechaza, pero publica
+`application/x-www-form-urlencoded`, que es falso frente al contrato; y si F5
+lee el flujo a mano, hace falta una lista explícita de las partes declaradas.
+Está escrito en `src/models/__init__.py` y en un comentario en #36, #37, #40 y
+#44; el de #36 recoge además tres observaciones de la misma medición: se acepta
+`urlencoded`, una parte repetida pasa con un solo valor, y `UploadFile` se
+publica con `contentMediaType` (3.1), ante el que el comparador se negará.
+
+**El despertador sonó donde tenía que sonar.** La fila «campo de más en
+`Gallery`» del servicio mentiroso afirmaba que **pasa**; se comprobó en verde
+antes de empezar y se puso en rojo sola contra el contrato nuevo, sin tocarla.
+Las filas de `ErrorReport` siguen afirmando que pasa, con su porqué: es el único
+esquema propio abierto, hasta #88.
+
+**Evidencia, por commit** (rojo-verde registrado; los rojos con `--no-verify`).
+La suite se ejecutó en el contenedor de desarrollo con **`env -u LOG_LEVEL`**:
+el compose fija `LOG_LEVEL=debug` y sin eso `test_log_level_default_is_info`
+falla por el entorno (`1 failed, 196 passed` en `main`); con él, 197, como la
+CI. Es #110.
+
+| Commit | Resultado |
+|---|---|
+| `main` `13db3fd` | 197 pasan |
+| `193ef80` guardias, contra el contrato viejo | 14 fallos, 203 pasan: las 6 guardias de `test_closure` y los 8 rechazos fuera de rango (`400` no declarado) |
+| `46f3d77` contrato | 6 fallos, 211 pasan: **exactamente** la fila del campo de más, sin tocar (`- pasa / + CAZA`), y los 5 de `test_shape` (`código=None contrato=False`); guardias en verde |
+| `d313816` modelos con `forbid` | 4 fallos, 213 pasan: la fila y 3 controles con modelos de juguete |
+| `9ce2338` mentiroso y controles invertidos | 226 pasan, cobertura 98,21 % |
+
+Lo demás, verificado:
+
+- **Determinismo:** 20 × «226 passed».
+- **Guardias que pueden fallar:** diez defectos inyectados en copias del
+  contrato, diez rojos, cada uno en su prueba.
+- **Ninguna respuesta real emite un campo sin declarar:** con el contrato
+  cerrado, ninguna prueba de extremo a extremo de `getGallery` cae.
+- **`/openapi.json` idéntico al `.yaml`:** en el contenedor de desarrollo y en
+  la imagen de producción recién construida, como `appuser`.
+- **Documento válido y 27 operaciones.**
+- **CI del PR:** `36709704400`, en verde, con «No known vulnerabilities found»
+  en el árbol de producción.
+- **Comparador:** compara `additionalProperties` en los dos sentidos (un modelo
+  sin `forbid` da `código=None contrato=False`) y **se niega** ante el compuesto
+  cerrado y ante `anyOf: [X, NullValue]`.
+
+**Lo que NO quedó verificado:** `scripts/dev-up.sh` salió con **exit=1 dos
+veces** por `gateway`: `DeadlineExceeded` de Docker Hub al pedir los metadatos
+de `kong:3.6.0-ubuntu`, que no está en local, antes de construir nada. El
+registro responde por `curl` en 0,36 s, pero `docker manifest inspect` se colgó
+más de 180 s. Auth y pricing construyeron, el Kong que ya corría siguió
+`healthy`, y el compose de `fr` arrancó (`healthy`, `/health` 200). El PR no
+toca la pasarela; aun así, el criterio queda pendiente de repetir con el
+registro disponible.
+
+**La DoD no contradice el cambio.** Ya pedía `400` en `GET galleries` y `GET
+identities`; fue el contrato el que lo perdió. **La memoria no se ha tocado:**
+el parche del capítulo 4 que esta sesión desbloquea ---que el contrato prohíbe
+además lo que no declara--- lo escribe Miguel al cerrar. Salen dos issues, #110
+(`LOG_LEVEL` en la prueba del valor por omisión) y #111 (`listWebhooks` sin
+paginar ni tope).
 
 ### La fase 1 NO está terminada
 
