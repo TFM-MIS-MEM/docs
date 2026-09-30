@@ -1062,7 +1062,7 @@ sesión.
 regla del proyecto ---contrato, luego DoD, luego memoria--- se había citado ocho
 veces sin ejercerse en ese orden, porque hasta ahora los contratos no se
 tocaban. Aquí el `.yaml` cambió primero, y el código y las pruebas fueron
-detrás. Resultado: `fr-commercial-microservice` PR #2 (rama `fase2/103`, cuatro
+detrás. Resultado: `fr-commercial-microservice` PR #2 (rama `fase2/103`, cinco
 commits, **pendiente de fusión**), sin ninguna operación nueva: el guardián de
 montaje sigue exigiendo exactamente `{getGallery}`. La prueba de que el cambio
 sirvió: un `getWebhook` que devolviera el secreto del punto de notificación
@@ -1086,9 +1086,11 @@ código nuestro.
   con que el validador lo acepte ---el validador aceptaba las cuatro formas
   candidatas---. Con `type: object` habría hecho falta una excepción en
   `test_closure`, sin que el `type` cambiara nada al validar. **No se llama
-  `Null`:** en YAML 1.1 esa clave sin comillas se carga como `None`; medido, el
-  componente se quedaba sin nombre y `openapi-spec-validator` reventaba con
-  `TypeError`. Estado medido con las dos herramientas: `frozenReason: null`,
+  `Null`:** esa clave sin comillas es nula en YAML 1.1 y también en el esquema
+  core de YAML 1.2, el de js-yaml, que es el lector de `auth` y `pricing`.
+  Medido: PyYAML la carga como `None`, js-yaml como `"null"` y `yaml` 2 como
+  `""`; el componente se quedaba sin nombre y `openapi-spec-validator` reventaba
+  con `TypeError`. Estado medido con las dos herramientas: `frozenReason: null`,
   antes `oc=CAZA st=pasa`, ahora `CAZA/CAZA`; `identity: null`, antes `oc=CAZA
   st=pasa`, ahora `pasa/pasa`.
 - **El cierre de los esquemas, vía C.** El recuento de la sesión 9 tenía **un**
@@ -1153,6 +1155,7 @@ CI. Es #110.
 | `46f3d77` contrato | 6 fallos, 211 pasan: **exactamente** la fila del campo de más, sin tocar (`- pasa / + CAZA`), y los 5 de `test_shape` (`código=None contrato=False`); guardias en verde |
 | `d313816` modelos con `forbid` | 4 fallos, 213 pasan: la fila y 3 controles con modelos de juguete |
 | `9ce2338` mentiroso y controles invertidos | 226 pasan, cobertura 98,21 % |
+| `742bb6c` `'y'` entre comillas y el porqué de `NullValue` | 226 pasan; cero diferencias entre los tres lectores de YAML; CI `36732807420` en verde |
 
 Lo demás, verificado:
 
@@ -1170,21 +1173,41 @@ Lo demás, verificado:
   sin `forbid` da `código=None contrato=False`) y **se niega** ante el compuesto
   cerrado y ante `anyOf: [X, NullValue]`.
 
-**Lo que NO quedó verificado:** `scripts/dev-up.sh` salió con **exit=1 dos
-veces** por `gateway`: `DeadlineExceeded` de Docker Hub al pedir los metadatos
-de `kong:3.6.0-ubuntu`, que no está en local, antes de construir nada. El
-registro responde por `curl` en 0,36 s, pero `docker manifest inspect` se colgó
-más de 180 s. Auth y pricing construyeron, el Kong que ya corría siguió
-`healthy`, y el compose de `fr` arrancó (`healthy`, `/health` 200). El PR no
-toca la pasarela; aun así, el criterio queda pendiente de repetir con el
-registro disponible.
+**`dev-up.sh`, primero en rojo y después en verde.** Salió con exit=1 dos veces
+por `gateway`: `DeadlineExceeded` de Docker Hub al pedir los metadatos de
+`kong:3.6.0-ubuntu`, antes de construir nada; el registro respondía por `curl`
+en 0,36 s, pero `docker manifest inspect` se colgó más de 180 s. **Por qué la
+imagen «ya no estaba» no tiene respuesta, porque no hay constancia de que
+estuviera**: la caché de BuildKit guarda sus capas (`pulled from
+docker.io/library/kong:3.6.0-ubuntu@sha256:2f2832a7…`, último uso hace 5 meses),
+pero ninguna transcripción la muestra como imagen etiquetada, ningún `prune`
+aparece en ellas, y la construcción del 29/08 ya consultaba el registro (`load
+metadata … 1.0s` con `[auth] library/kong:pull token`). Lo que se hereda es que,
+**sin la imagen etiquetada en local, toda construcción de la pasarela depende de
+que Docker Hub responda**. Los registros de Docker Desktop rotan cada ~1 MB y
+solo cubren hoy y mayo, de modo que no se puede descartar un borrado entre el 10
+y el 29 de septiembre. Con `docker pull kong:3.6.0-ubuntu` suelto (exit=0, el
+mismo resumen, un segundo), `dev-up.sh` sale con **exit=0**, y `load metadata`
+resuelve ya en `0.0s` sin pedir credencial al registro. El compose de `fr`
+arranca (`healthy`, `/health` 200).
 
-**La DoD no contradice el cambio.** Ya pedía `400` en `GET galleries` y `GET
-identities`; fue el contrato el que lo perdió. **La memoria no se ha tocado:**
-el parche del capítulo 4 que esta sesión desbloquea ---que el contrato prohíbe
-además lo que no declara--- lo escribe Miguel al cerrar. Salen dos issues, #110
-(`LOG_LEVEL` en la prueba del valor por omisión) y #111 (`listWebhooks` sin
-paginar ni tope).
+**La DoD no contradice el cambio, y tampoco lo respalda.** Lista `400` en todas
+sus operaciones sin distinguir, de modo que el que aparezca en los listados no
+es argumento para declararlo; el argumento es la regla de #68. **La memoria no
+se ha tocado:** el parche del capítulo 4 que esta sesión desbloquea ---que el
+contrato prohíbe además lo que no declara--- lo escribe Miguel al cerrar.
+
+**Lo que vino después de abrir el PR**, en un quinto commit (`742bb6c`): la
+clave `y` de `boundingBox`, entre comillas. Un lector de YAML 1.1 estricto la
+lee como `true` ---medido con `yaml` 2.9.1 en `version: 1.1`---, y con el
+esquema cerrado un `200` legítimo de `detectFaces` daba «'y' was unexpected»;
+PyYAML 6.0.3 no aplica las formas `y`/`n` de 1.1 y js-yaml es core 1.2, así que
+ninguno de los dos lo veía. Es la única divergencia entre los tres lectores en
+todo el documento; tras el cambio, cero. Y el comparador se niega ante `anyOf:
+[X, NullValue]` y ante el envoltorio de `WebhookEndpoint`: la obligación de
+enseñárselo, sin esquivarlo, queda escrita en #40 (F8, `searchGallery`) y #45
+(F13, webhooks), como la del multipart. Salen dos issues, #110 (`LOG_LEVEL` en
+la prueba del valor por omisión) y #111 (`listWebhooks` sin paginar ni tope).
 
 ### La fase 1 NO está terminada
 
