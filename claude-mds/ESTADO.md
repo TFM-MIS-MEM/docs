@@ -5,7 +5,7 @@
 >
 > **Última actualización:** sesión 10: #103, el contrato de `fr-commercial`
 > cerrado (vía C), con `400` en los listados y los dos `nullable` corregidos.
-> PR #2 de `fr-commercial-microservice`, pendiente de fusión.
+> Fusionado en `fr-commercial-microservice` (`36ce40b`, PR #2); #103 cerrado.
 
 ---
 
@@ -1062,12 +1062,14 @@ sesión.
 regla del proyecto ---contrato, luego DoD, luego memoria--- se había citado ocho
 veces sin ejercerse en ese orden, porque hasta ahora los contratos no se
 tocaban. Aquí el `.yaml` cambió primero, y el código y las pruebas fueron
-detrás. Resultado: `fr-commercial-microservice` PR #2 (rama `fase2/103`, cinco
-commits, **pendiente de fusión**), sin ninguna operación nueva: el guardián de
-montaje sigue exigiendo exactamente `{getGallery}`. La prueba de que el cambio
-sirvió: un `getWebhook` que devolviera el secreto del punto de notificación
-**era una respuesta conforme** y hoy la caza openapi-core, sin una línea de
-código nuestro.
+detrás. Resultado: `fr-commercial-microservice` PR #2 (rama `fase2/103`, seis
+commits), fusionado en `main` con commit de fusión (`36ce40b`), para que los
+commits del rojo-verde que cita esta entrada sigan existiendo; la CI de `main`
+tras la fusión, en verde (`36745034165`, 234). Sin ninguna operación nueva: el
+guardián de montaje sigue exigiendo exactamente `{getGallery}`. La prueba de que
+el cambio sirvió: un `getWebhook` que devolviera el secreto del punto de
+notificación **era una respuesta conforme** y hoy la caza openapi-core, sin una
+línea de código nuestro.
 
 **Tres cambios en el contrato, en un solo PR:**
 
@@ -1156,6 +1158,7 @@ CI. Es #110.
 | `d313816` modelos con `forbid` | 4 fallos, 213 pasan: la fila y 3 controles con modelos de juguete |
 | `9ce2338` mentiroso y controles invertidos | 226 pasan, cobertura 98,21 % |
 | `742bb6c` `'y'` entre comillas y el porqué de `NullValue` | 226 pasan; cero diferencias entre los tres lectores de YAML; CI `36732807420` en verde |
+| `b66fef6` guardia de escalares planos que YAML 1.1 lee de otra forma | 234 pasan; CI `36737818299` en verde |
 
 Lo demás, verificado:
 
@@ -1208,6 +1211,31 @@ todo el documento; tras el cambio, cero. Y el comparador se niega ante `anyOf:
 enseñárselo, sin esquivarlo, queda escrita en #40 (F8, `searchGallery`) y #45
 (F13, webhooks), como la del multipart. Salen dos issues, #110 (`LOG_LEVEL` en
 la prueba del valor por omisión) y #111 (`listWebhooks` sin paginar ni tope).
+
+**La guardia de YAML (`b66fef6`).** Nació de la clave `y`: recorre el contrato
+con `yaml.compose` y mira solo escalares planos. En las claves rechaza lo que
+YAML 1.1 lee como booleano o nulo; en los valores, solo
+`y`/`n`/`yes`/`no`/`on`/`off`, de modo que `true`, `false` y `null` ---que el
+contrato usa a propósito--- pasan sin excepciones escritas. Es sobre el texto
+porque la carga con PyYAML no lo ve. Sobre `main` (`13db3fd`) da `línea 1643:
+clave y sin comillas`; sobre la rama, nada. Controles en pareja: `y:` rojo y
+`'y':` verde; `enum: [on]` rojo y `enum: ['on']` verde; `nullable: true` verde.
+
+**Auditoría de issues tras la fusión, y por qué no se cerraban.** #103 no se
+cerró al fusionar: el PR decía «Cierra TFM-MIS-MEM/docs#103», y GitHub solo
+reconoce las palabras clave en inglés (`closingIssuesReferences` del PR, vacío).
+De los 12 PR fusionados en los cuatro repositorios de servicio ---`docs` no
+tiene PR---, solo `auth#1` y `pricing#2` cerraron sus issues, los dos únicos con
+«Closes TFM-MIS-MEM/docs#N»; los de «Cierra #N» fallan además por la referencia,
+que sin `owner/repo` resuelve contra el repositorio del propio PR. De los 69
+issues abiertos, uno estaba hecho y abierto (#103, cerrado ahora con un
+comentario que cita el PR y el commit de fusión); #33 es parcial ---F1 no
+conectó Redis, que su criterio pedía, y no se declaró---, y se cierra con el
+traspaso de Redis a #43, pendiente de aprobar ese texto; #64 y #100 son
+parciales y siguen abiertos; el resto, pendiente. En el sentido contrario,
+ninguno que este documento diera por cerrado seguía abierto salvo #103, y #80
+estaba cerrado aunque aquí figuraba abierto (anotado). #10 y #1 a #9, cerrados
+sin PR ni comentario, se dejan como están por decisión de Miguel.
 
 ### La fase 1 NO está terminada
 
@@ -1262,8 +1290,9 @@ que **su premisa era falsa**: el `overrides` de axios no silencia al escáner,
 **fuerza** la versión parcheada. Medido sobre `main`, retirarlo devuelve 23
 avisos de axios al árbol de desarrollo ---25 en total, con los dos de
 `browserslist`--- a cambio de nada, porque `--prod` ya los deja fuera de
-alcance. Queda abierto con esa corrección escrita en su comentario, propuesto
-para cerrarse como improcedente.
+alcance. ~~Queda abierto con esa corrección escrita en su comentario, propuesto
+para cerrarse como improcedente~~. **Cerrado el 08/09 como `NOT_PLANNED`**
+(anotado en la sesión 10: este documento lo siguió dando por abierto).
 
 De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
