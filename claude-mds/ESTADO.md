@@ -1243,6 +1243,23 @@ contrario, ninguno que este documento diera por cerrado seguía abierto salvo
 #103, y #80 estaba cerrado aunque aquí figuraba abierto (anotado). #10 y #1 a
 #9, cerrados sin PR ni comentario, se dejan como están por decisión de Miguel.
 
+**Dos issues más al cerrar, de decisiones que habían quedado abiertas.**
+**#112**: la DoD no describe `getWebhook`, `listWebhookDeliveries` ni
+`rotateWebhookSecret` ---27 operaciones en el contrato, 24 en la DoD, ninguna
+de más en ella---; plazo, antes de F13 (#45); y una decisión abierta: completar
+la DoD o, si es un entregable congelado, declarar dónde diverge. Se anota aparte,
+sin resolverla, la otra divergencia: la DoD lista `400` en todas sus operaciones
+y el contrato solo donde es una decisión. **#113**: cerrar los esquemas propios
+de `auth` y `pricing`, en los mismos PR que #88, un cambio de contrato por
+repositorio. Parte de cifras ---15 y 19 esquemas de objeto, ninguna composición
+de varios miembros, así que no hace falta la reestructuración de `fr`--- y de
+tres medidas previas: las composiciones otra vez, si `jest-openapi` aplica
+`additionalProperties: false`, y qué hace cada servicio hoy con un campo de más
+en la petición. La tercera es la que puede cambiar el alcance: el código
+heredado descartaba esos campos en silencio (`stripUnknown`), y cerrar los
+cuerpos declararía un rechazo que el código no aplica. Prioridad baja: no se
+adelanta a ninguna fase de `fr`.
+
 **La memoria se actualizó**, en `memoria_tex/v11`: cinco parches en tres
 capítulos, con `parches-memoria-sesion10.tex` recogiendo el reparto y el mismo
 criterio de las sesiones 3 a 9. **Por primera vez, la regla del proyecto se
