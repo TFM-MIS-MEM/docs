@@ -5,7 +5,8 @@
 >
 > **Última actualización:** sesión 10: #103, el contrato de `fr-commercial`
 > cerrado (vía C), con `400` en los listados y los dos `nullable` corregidos.
-> Fusionado en `fr-commercial-microservice` (`36ce40b`, PR #2); #103 cerrado.
+> Fusionado en `fr-commercial-microservice` (`36ce40b`, PR #2); #103 y #33
+> cerrados. Memoria en `v11`. Siguiente paso: F2 (#34).
 
 ---
 
@@ -1197,9 +1198,11 @@ arranca (`healthy`, `/health` 200).
 
 **La DoD no contradice el cambio, y tampoco lo respalda.** Lista `400` en todas
 sus operaciones sin distinguir, de modo que el que aparezca en los listados no
-es argumento para declararlo; el argumento es la regla de #68. **La memoria no
-se ha tocado:** el parche del capítulo 4 que esta sesión desbloquea ---que el
-contrato prohíbe además lo que no declara--- lo escribe Miguel al cerrar.
+es argumento para declararlo; el argumento es la regla de #68. ~~**La memoria
+no se ha tocado:** el parche del capítulo 4 que esta sesión desbloquea ---que
+el contrato prohíbe además lo que no declara--- lo escribe Miguel al cerrar.~~
+**Cierto al fusionar; la memoria se actualizó después**, con ese parche y
+cuatro más (al final de esta entrada).
 
 **Lo que vino después de abrir el PR**, en un quinto commit (`742bb6c`): la
 clave `y` de `boundingBox`, entre comillas. Un lector de YAML 1.1 estricto la
@@ -1239,6 +1242,35 @@ adelantarlo](https://github.com/TFM-MIS-MEM/docs/issues/43#issuecomment-59290705
 contrario, ninguno que este documento diera por cerrado seguía abierto salvo
 #103, y #80 estaba cerrado aunque aquí figuraba abierto (anotado). #10 y #1 a
 #9, cerrados sin PR ni comentario, se dejan como están por decisión de Miguel.
+
+**La memoria se actualizó**, en `memoria_tex/v11`: cinco parches en tres
+capítulos, con `parches-memoria-sesion10.tex` recogiendo el reparto y el mismo
+criterio de las sesiones 3 a 9. **Por primera vez, la regla del proyecto se
+cumple en su orden**: el contrato cambió y se fusionó, y la memoria se escribió
+después, sobre lo fusionado y medido. **Dos de los cinco son correcciones** de
+texto ya publicado. Una es de cifra: §8.1 daba «treinta y cuatro de los treinta
+y cinco» esquemas cerrables directamente, y son treinta y tres, porque el
+recuento de la sesión 9 contó el miembro `{secret}` como cerrable por sí solo.
+La otra es de tiempo verbal: §8.1 describía en presente una discrepancia entre
+validadores sobre una construcción que el contrato ya no tiene, y una memoria
+que describe una propiedad que la especificación ya no tiene induce a error
+igual que una que describe una que aún no tiene ---el motivo del aplazamiento
+de la sesión 9, en el otro sentido---; de paso se corrige la errata «ccon» de
+la v10. **El parche aplazado en la sesión 9 está dentro**: el capítulo 4
+enuncia por fin que el contrato prohíbe lo que no declara. Va al final de §4.3
+como continuación de la tercera decisión, sin `\paragraph` propio, para que
+«Tres decisiones merecen justificación explícita» siga siendo exacto. La
+aplicación se comprobó con un script y no a ojo: los quince párrafos de los
+cinco parches, literales y una sola vez; ningún resto de los dos párrafos
+sustituidos; cada inserción en su frontera; ninguna línea ajena en el diff; y
+los dos recuentos ya escritos («Tres decisiones» en §4.3, «dos fallos de
+instrumento» al cierre del capítulo 8), intactos.
+
+| Capítulo | Cambio |
+|---|---|
+| 4 — Diseño del servicio | Un parche, al final de §4.3: el **reverso del criterio de declaración**. Lo que el contrato calla no queda a discreción de quien lo implementa: una respuesta con un campo no declarado deja de ser conforme y una petición que lo traiga se rechaza; por el mismo motivo se declara el rechazo de un parámetro fuera de cota, porque ajustarlo en silencio también es una decisión, y la más difícil de descubrir. El caso que lo justifica es el secreto devuelto por una consulta, que antes era conforme. Una excepción ---el informe de error, común a las tres especificaciones, abierto hasta poder cerrarse en las tres; su detalle, abierto por diseño--- y un coste ---la compatibilidad hacia delante---, que se acepta porque añadir un campo ya es, por método, un cambio de contrato |
+| 6 — Implementación | Un parche, `\subsection{Cierre de los esquemas de la especificación}`, nueva tras la de conformidad: 37 esquemas, 34 cerrados y 3 abiertos, solo en `fr`; la composición reestructurada en base abierta más dos esquemas que enumeran los nombres, con el secreto definido y obligatorio solo en la creación; las dos listas y por qué la dirección silenciosa exige la guardia estática; los dos nulos resueltos con un mismo criterio (no tres estados para dos significados); el rechazo en peticiones, **probado en JSON y solo declarado en los ocho cuerpos multiparte**, con el mecanismo medido; el comparador que se detiene ante las dos construcciones nuevas, y la versión que no se cambia, por decisión |
+| 8 — Validación | Tres parches. Una **corrección** en §8.1, el párrafo de la formulación general: treinta y tres de treinta y cinco, cerrar cualquiera de los dos miembros rompe la composición, y lo previsto pasa a ejecutado con su alcance real (una especificación, no tres). Otra en el párrafo de los validadores que discrepan, que pasa a pasado, con la corrección del contrato y por qué la conclusión no depende de ella, más la errata. Y `\subsection{Un cambio de contrato verificado por su propia alarma}`, nueva al final de §8.1: la acreditación por el validador estándar y no por código propio; la fila del mentiroso que falla sola, y por qué el orden importa; la previsión «el olvido falla en voz alta», desmentida en la dirección peligrosa; la clave `y` que el cierre volvió dañina, y que no es un fallo de instrumento porque todos leían igual; y el alcance de la evidencia en multipart |
 
 ### La fase 1 NO está terminada
 
@@ -1320,7 +1352,41 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: `fr-commercial`
+### Siguiente paso: F2 (#34), modelos de dominio e índices
+
+**Decidido al cerrar la sesión 10.** Con #103 fusionado, el contrato de `fr` ya
+no tiene defectos conocidos que bloqueen el CRUD, y el orden vuelve a ser el de
+los issues. F2 va antes que F3 porque el CRUD de galerías (F3) y el de
+identidades y rostros (F4) necesitan lo que F2 define: las colecciones
+`galleries`, `identities` y `faces` conforme al modelo de `CLAUDE.md`; el índice
+`{galleryId}` en `faces`, crítico para la identificación 1:N; el índice único y
+disperso `{galleryId, externalId}` en `identities`; y los contadores
+desnormalizados `identityCount` y `faceCount`.
+
+F2 **no implementa ninguna operación**: el guardián de montaje sigue exigiendo
+exactamente `{getGallery}`. Lo que hereda de las sesiones 9 y 10:
+
+- **Los modelos de la API, cerrados.** Todo modelo de entrada o de respuesta
+  nuevo lleva `extra="forbid"`: el contrato prohíbe lo que no declara, y un
+  modelo abierto da diferencia en la comparación estática. Está escrito en
+  `src/models/__init__.py`. Los modelos de persistencia no son esquemas del
+  contrato y no les alcanza la regla, pero lo que sale de ellos hacia una
+  respuesta pasa por un modelo que sí.
+- **Los nulos, campo a campo según el contrato.** Los opcionales de `Gallery`
+  se omiten, sin `exclude_none` global; `Identity.externalId` y otros sí
+  admiten `null` (véase la sesión 9). `model_serializer` sin anotación de
+  retorno (`CLAUDE.md`).
+- **Redis no entra**: se traspasó de F1 a #43 (F11), con la salvedad de F10
+  (#42) escrita en el traspaso.
+- **#106, el MongoDB de `fr` sin autenticación, bloquea F4.** F2 es la primera
+  fase que crea índices sobre esa base, así que al abrirla hay que decidir si
+  #106 entra con ella o se queda donde está.
+- **Desde F3 (#35), un caso negativo por cada parámetro acotado**, que desde
+  #103 ya tiene un `400` declarado al que ajustarse.
+
+#### ~~Siguiente paso: `fr-commercial`~~ — caducado en la sesión 10
+
+Se conserva el enunciado anterior.
 
 Sin cambios respecto a lo previsto: la media sesión de `pricing` que precedía a
 la fase 2 está hecha, y con ella **la implementación de referencia de cómo un

@@ -480,6 +480,26 @@ Webhooks salientes: firma HMAC-SHA256 sobre `timestamp + "." + cuerpo_crudo`
   medido en `fr-commercial` (#33), un campo de más pasa. Se cierra envolviendo:
   `{"allOf": [{"$ref": ...}], "unevaluatedProperties": false}`. Rige desde el
   día en que un contrato se migre a 3.1; hoy los tres son 3.0.3.
+- **En OpenAPI 3.0.3, un esquema que otro compone se cierra así:** una base
+  abierta con las definiciones; cada envoltorio con `allOf: [Base]`, sus nombres
+  vacíos en `properties` y `additionalProperties: false`; y una guardia estática
+  que compara las listas con la base en los dos sentidos. Un nombre que falta
+  rechaza respuestas legítimas, pero solo si alguna prueba emite ese campo; uno
+  que sobra se admite con cualquier valor y ningún validador avisa. Lo vigila
+  `fr-commercial-microservice/tests/contract/test_closure.py` (#103).
+- **Un cuerpo multipart se cierra con un modelo `extra="forbid"` anotado con
+  `File()`, no con `Form()`.** Con `Form()` también rechaza las partes de más,
+  pero publica `application/x-www-form-urlencoded`, que es falso frente al
+  contrato. Con parámetros `File()`/`Form()` sueltos, la parte de más se ignora
+  (`200`). Si se lee el flujo a mano, el cierre es una lista explícita de las
+  partes declaradas. Requiere `python-multipart`, que no está en el árbol
+  fijado hasta F4.
+- **En los contratos, ninguna clave es un escalar sin comillas que YAML 1.1 lea
+  como booleano o nulo, y ningún valor es `y`, `n`, `yes`, `no`, `on` ni `off`
+  sin comillas.** Los lectores discrepan (PyYAML no aplica `y`/`n`; js-yaml es
+  1.2), y con los esquemas cerrados una clave mal leída rechaza respuestas
+  legítimas. Por eso el componente nulo se llama `NullValue` y no `Null`. Lo
+  vigila `test_closure.py`.
 - **El `model_serializer` de Pydantic no lleva `-> Any`.** Pydantic deriva de la
   anotación de retorno el esquema de SERIALIZACIÓN, y FastAPI publica ese
   esquema. Con `Any` el esquema publicado sale `{}` y las respuestas siguen
@@ -505,6 +525,17 @@ La planificación vive en los **issues del repositorio de documentación**.
 
 Duplicarla fue la causa del desajuste anterior entre GitHub y este documento:
 dos listas de lo mismo divergen en cuanto una se mueve.
+
+**Cerrar issues desde un PR.** Cuando un PR resuelve un issue del todo, la
+descripción lo cierra con la palabra clave en inglés y la referencia completa,
+`Closes TFM-MIS-MEM/docs#N`: los issues viven en `docs` y los PR en otros
+repositorios, «Cierra» no cierra nada y `#N` a secas apunta al repositorio del
+propio PR. Los que el PR resuelve solo en parte se referencian con
+`Refs TFM-MIS-MEM/docs#N`, que no los cierra. Antes de fusionar,
+`gh pr view <N> --json closingIssuesReferences` tiene que coincidir exactamente
+con los issues que el PR resuelve del todo; si no coincide, se corrige la
+descripción antes de fusionar. Una lista vacía es correcta cuando el PR no
+resuelve ninguno del todo.
 
 Fases de trabajo, en este orden:
 
