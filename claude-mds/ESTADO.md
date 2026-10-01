@@ -958,8 +958,9 @@ contrato. Se midieron cuatro vías:
   huecos unos a otros (TID251 no ve `extra='allow'`, `response_model=dict` ni la
   ausencia de modelo; la comparación sí, pero no ve un `JSONResponse` a mano).
 - **C, cerrar en el contrato** (`additionalProperties: false`). De los 36, 35
-  se pueden cerrar ---`details` es abierto a propósito--- y 34 se cierran sin
-  más. **Hay una sola composición `allOf` de más de un miembro en todo
+  se pueden cerrar ---`details` es abierto a propósito--- y ~~34~~ **33**
+  (véase la sesión 10) se cierran sin más. **Hay una sola composición `allOf`
+  de más de un miembro en todo
   el contrato**: el `201` de `createWebhook`, `allOf: [WebhookEndpoint,
   {secret}]`. Cerrar `WebhookEndpoint` tal cual rechaza el `201` legítimo
   («Additional properties are not allowed ('secret' was unexpected)»). El
@@ -975,8 +976,8 @@ contrato. Se midieron cuatro vías:
   la guardia estática de `test_closure.py`. Y el recuento también estaba mal:
   el miembro `{secret}` no se cierra directamente (véase la sesión 10). La
   frase de §8.1 «basta prohibir los
-  campos adicionales» es falsa tal como está: vale para 34 esquemas y para este
-  exige reestructurar.
+  campos adicionales» es falsa tal como está: vale para ~~34~~ **33** esquemas
+  (véase la sesión 10) y para este exige reestructurar.
 - **D, migrar el contrato a 3.1** y cerrar con `unevaluatedProperties`. Sin
   nombres repetidos y resolviendo de paso el `nullable` de #103, **pero con una
   trampa medida: openapi-core ignora los hermanos de `$ref`**. La forma
@@ -1230,12 +1231,14 @@ tiene PR---, solo `auth#1` y `pricing#2` cerraron sus issues, los dos únicos co
 que sin `owner/repo` resuelve contra el repositorio del propio PR. De los 69
 issues abiertos, uno estaba hecho y abierto (#103, cerrado ahora con un
 comentario que cita el PR y el commit de fusión); #33 es parcial ---F1 no
-conectó Redis, que su criterio pedía, y no se declaró---, y se cierra con el
-traspaso de Redis a #43, pendiente de aprobar ese texto; #64 y #100 son
-parciales y siguen abiertos; el resto, pendiente. En el sentido contrario,
-ninguno que este documento diera por cerrado seguía abierto salvo #103, y #80
-estaba cerrado aunque aquí figuraba abierto (anotado). #10 y #1 a #9, cerrados
-sin PR ni comentario, se dejan como están por decisión de Miguel.
+conectó Redis, que su criterio pedía, y no se declaró---, y se cerró el 01/10
+con el traspaso de Redis a #43, en un [comentario que sitúa en F11 la primera
+fase que lo nombra y en F10 (#42) la que podría
+adelantarlo](https://github.com/TFM-MIS-MEM/docs/issues/43#issuecomment-5929070530);
+#64 y #100 son parciales y siguen abiertos; el resto, pendiente. En el sentido
+contrario, ninguno que este documento diera por cerrado seguía abierto salvo
+#103, y #80 estaba cerrado aunque aquí figuraba abierto (anotado). #10 y #1 a
+#9, cerrados sin PR ni comentario, se dejan como están por decisión de Miguel.
 
 ### La fase 1 NO está terminada
 
