@@ -3,10 +3,11 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 10: #103, el contrato de `fr-commercial`
-> cerrado (vía C), con `400` en los listados y los dos `nullable` corregidos.
-> Fusionado en `fr-commercial-microservice` (`36ce40b`, PR #2); #103 y #33
-> cerrados. Memoria en `v11`. Siguiente paso: F2 (#34).
+> **Última actualización:** sesión 11: #34 (F2), modelos de persistencia e
+> índices de `fr-commercial`, con el `409` de cada índice único declarado en el
+> contrato y el índice de `externalId` parcial, no disperso. Fusionado en
+> `fr-commercial-microservice` (`da38e25`, PR #3); #34 cerrado. Memoria sin
+> tocar. Siguiente paso: por decidir.
 
 ---
 
@@ -1292,9 +1293,12 @@ instrumento» al cierre del capítulo 8), intactos.
 **Sesión 11 — #34 (F2), la primera fase que crea estado persistente propio en
 `fr`, y la primera en que el contrato cambia por algo que descubre el modelo de
 datos.** Resultado: `fr-commercial-microservice` PR #3 (rama `fase2/34`, cuatro
-commits), **abierto y pendiente de fusión**; CI del PR `37497258438` en verde
-sobre `12c9aaf` (270 pasan, «No known vulnerabilities found»).
-`closingIssuesReferences`, comprobado: exactamente `TFM-MIS-MEM/docs#34`. Sin
+commits), fusionado en `main` con commit de fusión (`da38e25`), para que los
+commits del rojo-verde que cita esta entrada sigan existiendo. Antes de fusionar
+se comprobó que la cabeza seguía en `12c9aaf`, con su CI (`37497258438`) en
+verde, y que `closingIssuesReferences` era exactamente `TFM-MIS-MEM/docs#34`.
+La CI de `main` tras la fusión, en verde (`37501294383`, 270, «No known
+vulnerabilities found»), y **#34 cerrado** (`COMPLETED`), comprobado con `gh`. Sin
 ninguna operación nueva: el guardián de montaje sigue exigiendo exactamente
 `{getGallery}`.
 
@@ -1416,11 +1420,16 @@ de desarrollo con `env -u LOG_LEVEL`):
   los seis índices creados en la base de desarrollo por el propio servicio.
 
 **El enlace del contrato no era un enlace.** `repos/openapi/fr-commercial.yaml`
-era un fichero real, de fecha 01/10 12:55, aunque esta entrada y la línea de
-«Decisiones» afirmaban que la sesión 5 dejó un enlace. Su contenido era
-idéntico byte a byte al del repositorio (`cmp`), y se convirtió en enlace antes
-del commit de contrato. Desde entonces el contrato se edita solo por la ruta
-del repositorio. Hoy:
+era un fichero real, de fecha 01/10 12:55. Sin embargo, la entrada de la sesión
+5, «Siguiente paso: `fr-commercial`» y la línea de «Decisiones» afirmaban que
+la raíz conservaba el enlace. **El 01/10 es la sesión 10**, la que editó el
+contrato: sus commits de contrato son del 30/09 (`46f3d77`, `742bb6c`), y la
+fecha del fichero cae dos minutos después del último commit de ESTADO de esa
+sesión (`150059e`, 01/10 12:53). Eso apunta a una herramienta que guardó por la
+ruta de la raíz y sustituyó el enlace por una copia. Lo que guardó no cambió
+nada: el contenido era idéntico byte a byte al del repositorio (`cmp`). Se
+convirtió en enlace antes del commit de contrato, y desde entonces el contrato
+se edita solo por la ruta del repositorio. Hoy:
 
 ```
 lrwxr-xr-x@ 1 miguel  staff  38 Aug 29 11:46 auth.yaml -> ../auth-microservice/openapi/auth.yaml
@@ -1440,7 +1449,8 @@ lrwxr-xr-x@ 1 miguel  staff  44 Aug 29 11:46 pricing.yaml -> ../pricing-microser
   «permite identidades sin él»; los `409` que no lista; y `updateIdentity` con
   «Inputs: Name», cuando el contrato admite también `externalId`, a propósito.
 
-**Líneas de CLAUDE.md que este cambio deja falsas**, sin editar:
+**Líneas de CLAUDE.md que este cambio dejaba falsas** ---**aplicadas por
+Miguel** en `docs` (`4d35a3f`)---:
 
 - l. 77, «`/src/models → esquemas MongoDB`»: son los modelos de la API; los de
   persistencia están en `/src/documents`.
@@ -1451,6 +1461,17 @@ lrwxr-xr-x@ 1 miguel  staff  44 Aug 29 11:46 pricing.yaml -> ../pricing-microser
   índice único lleva su `409` declarado, ni los dos códigos nuevos.
 - ll. 26 y 34 («fichero real hasta que exista su repositorio»): ya eran falsas
   desde la sesión 5; desde ésta, la raíz tiene el enlace.
+
+Con ellas entran en CLAUDE.md **dos convenciones nuevas**:
+
+- **Todo índice único lleva su `409` declarado** en cada operación que escribe
+  sus campos, y se declara antes de crear el índice. Lo vigila
+  `test_uniqueness.py`, que cruza `INDEXES` con los cuerpos de petición del
+  contrato.
+- **El contrato se edita siempre por su ruta canónica**, la del repositorio de
+  su servicio, nunca a través del enlace de `openapi/`. Una herramienta que
+  guarda sustituyendo el fichero convierte el enlace en una copia sin avisar. Se
+  comprueba con `ls -l openapi/`: los tres tienen que ser enlaces.
 
 **La DoD**, en `documentacion/DoD-TFM.docx`, contradice el cambio en el índice
 disperso y no recoge los `409`. Se ha comentado en #112 y no se ha editado.
@@ -1537,7 +1558,8 @@ Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
 ### Siguiente paso: por decidir al cerrar la sesión 11
 
-F2 está hecho en el PR #3 de `fr-commercial-microservice`, pendiente de fusión.
+F2 está hecho y fusionado: PR #3 de `fr-commercial-microservice`, commit de
+fusión `da38e25`, CI de `main` `37501294383` en verde, #34 cerrado.
 El orden de los issues pone a continuación F3 (#35), el CRUD de galerías; #106
 sigue bloqueando F4, no F3. Lo que F2 deja escrito para las fases siguientes:
 
@@ -1636,6 +1658,8 @@ Otras dos para cuando llegue:
 - ~~`openapi/fr-commercial.yaml` no vive dentro del repositorio de su
   servicio.~~ **Hecho en la sesión 5.** El repositorio existe, el contrato está
   versionado dentro y la raíz conserva el enlace simbólico, como los otros dos.
+  **Falso del 01/10 al 06/10**: la raíz tenía una copia, no el enlace (véase la
+  sesión 11).
 
 ---
 
