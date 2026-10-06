@@ -1289,6 +1289,172 @@ instrumento» al cierre del capítulo 8), intactos.
 | 6 — Implementación | Un parche, `\subsection{Cierre de los esquemas de la especificación}`, nueva tras la de conformidad: 37 esquemas, 34 cerrados y 3 abiertos, solo en `fr`; la composición reestructurada en base abierta más dos esquemas que enumeran los nombres, con el secreto definido y obligatorio solo en la creación; las dos listas y por qué la dirección silenciosa exige la guardia estática; los dos nulos resueltos con un mismo criterio (no tres estados para dos significados); el rechazo en peticiones, **probado en JSON y solo declarado en los ocho cuerpos multiparte**, con el mecanismo medido; el comparador que se detiene ante las dos construcciones nuevas, y la versión que no se cambia, por decisión |
 | 8 — Validación | Tres parches. Una **corrección** en §8.1, el párrafo de la formulación general: treinta y tres de treinta y cinco, cerrar cualquiera de los dos miembros rompe la composición, y lo previsto pasa a ejecutado con su alcance real (una especificación, no tres). Otra en el párrafo de los validadores que discrepan, que pasa a pasado, con la corrección del contrato y por qué la conclusión no depende de ella, más la errata. Y `\subsection{Un cambio de contrato verificado por su propia alarma}`, nueva al final de §8.1: la acreditación por el validador estándar y no por código propio; la fila del mentiroso que falla sola, y por qué el orden importa; la previsión «el olvido falla en voz alta», desmentida en la dirección peligrosa; la clave `y` que el cierre volvió dañina, y que no es un fallo de instrumento porque todos leían igual; y el alcance de la evidencia en multipart |
 
+**Sesión 11 — #34 (F2), la primera fase que crea estado persistente propio en
+`fr`, y la primera en que el contrato cambia por algo que descubre el modelo de
+datos.** Resultado: `fr-commercial-microservice` PR #3 (rama `fase2/34`, cuatro
+commits), **abierto y pendiente de fusión**; CI del PR `37497258438` en verde
+sobre `12c9aaf` (270 pasan, «No known vulnerabilities found»).
+`closingIssuesReferences`, comprobado: exactamente `TFM-MIS-MEM/docs#34`. Sin
+ninguna operación nueva: el guardián de montaje sigue exigiendo exactamente
+`{getGallery}`.
+
+**Estado de partida, medido y no leído:** `main` en `36ce40b`, CI
+`36745034165` en verde con auditoría, 234 pasan en local. El servicio no creaba
+ningún índice (la base de desarrollo tenía `galleries` vacía y solo `_id_`).
+Las pruebas llegan a MongoDB real en los dos sitios, sin sustituto: el
+contenedor de desarrollo en local y un contenedor de servicio `mongo:7.0` en la
+CI.
+
+**El índice de `externalId` que describían CLAUDE.md y la DoD no hacía lo que
+decían.** Medido contra `mongod 7.0.40`: con `{galleryId, externalId}` único y
+**disperso**, la segunda identidad **sin** `externalId` de una galería se
+rechaza (`E11000 … externalId: null`), y lo mismo con `null`. Era peor de lo que
+se sospechaba: no solo el `null`, también la ausencia. Un disperso compuesto
+indexa el documento en cuanto está uno de sus campos, y `galleryId` está
+siempre. El índice **parcial** `{externalId: {$type: "string"}}` admite los dos
+casos y rechaza el duplicado real. Dos medidas más, que deciden índices:
+
+- El planificador **no usa el parcial sin su predicado**: `{galleryId}` a secas,
+  y `{galleryId, externalId: "E-1"}` sin `$type: "string"`, hacen COLLSCAN; con
+  el predicado, `IXSCAN`. Por eso `{galleryId}` suelto en `identities` **no es
+  redundante**, y está escrito junto a `INDEXES`.
+- En `galleries`, `{accountId}` suelto **sí lo era**: `find({accountId})` usa
+  `IXSCAN(accountId_1_name_1)`, el prefijo del compuesto. No se crea.
+
+**Las cuatro decisiones de Miguel:**
+
+- **Unicidad: se quedan los dos índices únicos y se declara su `409`**, en un
+  commit de contrato previo al código. `ConflictGalleryName`
+  (`GALLERY_NAME_ALREADY_EXISTS`) en `createGallery` y `updateGallery`, con la
+  **comparación exacta, sin intercalación, escrita en la descripción**: es una
+  decisión y se declara. `ConflictExternalId` (`EXTERNAL_ID_ALREADY_EXISTS`) en
+  `createIdentity`, que tenía un `409` en línea sin código, y en
+  `updateIdentity`, que podía cambiar `externalId` sin declararlo. Más
+  `minLength: 1` en `externalId` de las dos: el parcial indexa `""` y un campo
+  multipart en blanco llega como `""`, así que la segunda identidad «sin
+  `externalId`» daría un `409` falso. **No se normaliza `""` a ausente**: sería
+  ajustar en silencio; se rechaza con el `400` que ambas ya declaran.
+  `info.version` sigue en 1.0.0, con el criterio de #103.
+- **Índice parcial**, y `externalId` se guarda **ausente**, nunca `null` ni
+  vacío.
+- **#106 no entra.** Medido su coste: con `MONGO_INITDB_ROOT_*` sobre un volumen
+  ya inicializado, la imagen activa `--auth` pero **no crea el usuario** (lectura
+  sin credencial `Unauthorized`, con la de root `Authentication failed`): el
+  volumen de desarrollo habría que recrearlo. `ping` sin credencial sigue
+  respondiendo, así que los healthchecks no cambian. Tocaría unos nueve
+  ficheros, depende de #105 para generar el secreto y fijaría solo en `fr` el
+  patrón de los tres servicios (#97 y #98 siguen abiertos). **Para su sesión:
+  `ensure_indexes` correrá con el usuario de la aplicación, y hay que comprobar
+  que `readWrite` basta.**
+- **Los modelos de persistencia van en `src/documents`**; los de la API se
+  quedan en `src/models`, sin `git mv`.
+
+**Qué entra.** `GalleryDocument`, `IdentityDocument` y `FaceDocument`, cada uno
+con su `COLLECTION`, sus `INDEXES` y, para cada único, el código de su `409` en
+`CONFLICTS`. Al leer ignoran lo que no modelan; al escribir omiten lo opcional
+sin valor, campo a campo. Valores iniciales: galería `active`, `identityCount` y
+`faceCount` a 0; identidad con `faceCount` a 0. **`faceCount` de la identidad
+empieza en 0 por decisión de Miguel**, y queda escrito para F4 con su
+condición: con 0 el contador nunca dice más de lo que hay **siempre que el
+`$inc` vaya después de insertar el rostro**; si el proceso cae entre medias,
+queda una identidad huérfana con `faceCount` 0 que la reconciliación encuentra
+con una consulta. Un replica set de un nodo habilitaría transacciones; lo
+decide F4. **El invariante de `frozenReason`** («presente si y solo si
+`frozen`») se valida al leer, y un documento corrupto da `500`: decisión
+escrita y probada en los dos sentidos, de extremo a extremo por `getGallery`,
+que ahora lee a través de `GalleryDocument` sin tocar sus pruebas. Junto a
+`CONFLICTS`, para F3 y F4: se escribe sin comprobar antes, y el
+`DuplicateKeyError` se traduce a `409` **según el índice que saltó**
+(`keyPattern`, medido en el error de inserción), no solo por el 11000.
+
+**Si un índice no se puede crear, el servicio no arranca.** Sin un único, el
+`409` miente en silencio y los duplicados se acumulan; sin `{galleryId}` en
+`faces`, la búsqueda 1:N degrada a COLLSCAN. Lo que se ve, medido con
+duplicados previos en `galleries`:
+
+- **`docker-compose.dev.yml`** (uvicorn con `--reload`): el contenedor **no
+  sale**. Queda `running` y `health=starting` hasta los ~55 s, después
+  `unhealthy`, con `RestartCount` 0. Corregidos los datos, `docker restart` lo
+  devolvió a `healthy`.
+- **Imagen de `Dockerfile` con `restart: unless-stopped`**: sale con código 3 y
+  entra en **bucle de reinicios**, «Restarting (3)», 10 en ~65 s. Se midió con
+  `docker run` y la misma política, porque los `container_name` del compose de
+  producción chocan con los de desarrollo.
+
+Un índice viejo con el mismo nombre y otra forma da `IndexKeySpecsConflict`
+(86) y también impide arrancar: **cambiar la forma de un índice exige una
+migración explícita**, escrito junto a `ensure_indexes`. Los índices se crean
+uno a uno para que el registro (`mongodb_index_failed`) diga cuál falló. No
+escribe el mensaje del servidor, que lleva los valores duplicados.
+
+**Evidencia, por commit** (los rojos con `--no-verify`; suite en el contenedor
+de desarrollo con `env -u LOG_LEVEL`):
+
+| Commit | Resultado |
+|---|---|
+| `main` `36ce40b` | 234 pasan |
+| `4c164c2` guardia `test_uniqueness`, contra el contrato viejo | ROJO: 6 huecos (los dos `409` de galerías, el código que faltaba en `createIdentity`, el `409` de `updateIdentity` y los dos `minLength`); sus 6 controles en verde |
+| `cca4359` contrato | 241 pasan |
+| `d5ebafe` índices y documentos, antes del código | ROJO: 9 fallos y 1 error de colección (`No module named 'src.documents'`), 247 pasan; las 6 de «admite» pasan ya, porque sin índice todo se admite |
+| `12c9aaf` modelos e índices | 270 pasan, tres veces seguidas; cobertura 98,68 %; CI `37497258438` en verde |
+
+- **`test_uniqueness`** cruza dos fuentes, sin comparar ninguna consigo misma:
+  los índices únicos salen de `INDEXES` y `CONFLICTS`, y las operaciones
+  afectadas, de los `requestBody` del contrato. Sus controles: un índice
+  inyectado en `INDEXES` sin `409` da rojo, y también un único sin código o un
+  código sin índice. Una prueba aparte exige los dos únicos de CLAUDE.md, para
+  que vaciar `INDEXES` no la deje en verde sin vigilar nada.
+- **`test_indexes`** compara `index_information()` entero (clave, unicidad,
+  filtro, y la ausencia de `sparse` o intercalación). Prueba además el rechazo
+  con su `keyPattern`; lo que se admite; que `""` repetido choca, que es el
+  porqué del `minLength`; la idempotencia (dos arranques, mismos índices); y las
+  dos negativas a arrancar.
+- **Respecto al commit rojo, cambió una aserción:** el evento
+  `mongodb_index_failed` lleva además `index`, porque los índices se crean uno a
+  uno. Está dicho en el mensaje del commit verde.
+- **`dev-up.sh` sale con exit=0**, y el compose de `fr` queda `healthy`, con
+  los seis índices creados en la base de desarrollo por el propio servicio.
+
+**El enlace del contrato no era un enlace.** `repos/openapi/fr-commercial.yaml`
+era un fichero real, de fecha 01/10 12:55, aunque esta entrada y la línea de
+«Decisiones» afirmaban que la sesión 5 dejó un enlace. Su contenido era
+idéntico byte a byte al del repositorio (`cmp`), y se convirtió en enlace antes
+del commit de contrato. Desde entonces el contrato se edita solo por la ruta
+del repositorio. Hoy:
+
+```
+lrwxr-xr-x@ 1 miguel  staff  38 Aug 29 11:46 auth.yaml -> ../auth-microservice/openapi/auth.yaml
+lrwxr-xr-x@ 1 miguel  staff  56 Oct  6 18:24 fr-commercial.yaml -> ../fr-commercial-microservice/openapi/fr-commercial.yaml
+lrwxr-xr-x@ 1 miguel  staff  44 Aug 29 11:46 pricing.yaml -> ../pricing-microservice/openapi/pricing.yaml
+```
+
+**Fuera del encargo, registrado y sin arreglar:**
+
+- **#114**, nuevo: la Admin API de Kong se publica en `0.0.0.0:8001`, sin
+  credencial, **también en el compose de producción**. Responde `200` por la IP
+  de LAN. En modo sin base de datos, `POST /config` sustituye la configuración
+  entera, `space-auth` incluido; eso no se probó, es una inferencia del modo.
+  `identity-headers.sh` usa la Admin API desde el anfitrión, así que cerrarla
+  sin más rompe esa prueba.
+- **Comentario en #112**: las tres divergencias con la DoD. El disperso que
+  «permite identidades sin él»; los `409` que no lista; y `updateIdentity` con
+  «Inputs: Name», cuando el contrato admite también `externalId`, a propósito.
+
+**Líneas de CLAUDE.md que este cambio deja falsas**, sin editar:
+
+- l. 77, «`/src/models → esquemas MongoDB`»: son los modelos de la API; los de
+  persistencia están en `/src/documents`.
+- l. 275, «`índices: {accountId}, {accountId, name} único`»: `{accountId}`
+  suelto no existe.
+- l. 278, «`{galleryId, externalId} único disperso`»: es único y **parcial**.
+- §6, «Códigos de estado»: ninguna línea queda falsa, pero no recoge que todo
+  índice único lleva su `409` declarado, ni los dos códigos nuevos.
+- ll. 26 y 34 («fichero real hasta que exista su repositorio»): ya eran falsas
+  desde la sesión 5; desde ésta, la raíz tiene el enlace.
+
+**La DoD**, en `documentacion/DoD-TFM.docx`, contradice el cambio en el índice
+disperso y no recoge los `409`. Se ha comentado en #112 y no se ha editado.
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -1369,7 +1535,29 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: F2 (#34), modelos de dominio e índices
+### Siguiente paso: por decidir al cerrar la sesión 11
+
+F2 está hecho en el PR #3 de `fr-commercial-microservice`, pendiente de fusión.
+El orden de los issues pone a continuación F3 (#35), el CRUD de galerías; #106
+sigue bloqueando F4, no F3. Lo que F2 deja escrito para las fases siguientes:
+
+- **F3 y F4 traducen `DuplicateKeyError` a `409` según el índice que saltó**
+  (`keyPattern`), sin comprobar antes de escribir, con el código de `CONFLICTS`
+  de `src/documents`.
+- **F4: `faceCount` de la identidad empieza en 0**, y el `$inc` va después de
+  insertar el rostro. Si se quieren transacciones, hace falta un replica set de
+  un nodo, y lo decide F4.
+- **#106 (con #105) antes de F4.** `ensure_indexes` correrá con el usuario de
+  la aplicación: hay que comprobar que `readWrite` basta. Y el volumen de
+  desarrollo hay que recrearlo, porque la imagen no crea el usuario sobre uno
+  ya inicializado (medido).
+- **Cambiar la forma de un índice exige una migración explícita**: el arranque
+  se niega ante el viejo.
+
+#### ~~Siguiente paso: F2 (#34), modelos de dominio e índices~~ — hecho en la sesión 11
+
+Se conserva el enunciado anterior. El índice «único y disperso» que cita resultó
+no hacer lo que se esperaba, y es parcial (véase la sesión 11).
 
 **Decidido al cerrar la sesión 10.** Con #103 fusionado, el contrato de `fr` ya
 no tiene defectos conocidos que bloqueen el CRUD, y el orden vuelve a ser el de
