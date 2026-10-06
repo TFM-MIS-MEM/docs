@@ -31,11 +31,12 @@ implementa y el `COPY . .` de los `Dockerfile` la mete en la imagen.
 Lo que hay en `openapi/` del workspace son **enlaces simbólicos de
 conveniencia** hacia esos ficheros, para que la ruta corta siga funcionando sin
 que existan dos copias que puedan divergir. **El contrato se edita siempre por
-su ruta canónica, nunca a través del enlace**: una herramienta que guarda
-sustituyendo el fichero convierte el enlace en una copia sin avisar. Pasó con
-`fr-commercial.yaml`, que fue un fichero real del 01/10 al 06/10, el mismo día
-en que se editaba el contrato (detectado en #34). Se comprueba con
-`ls -l openapi/`: los tres tienen que ser enlaces.
+su ruta canónica, nunca a través del enlace**, y la regla vale igual para las
+personas que para los agentes: un editor que guarda sustituyendo el fichero
+convierte el enlace en una copia sin avisar. Pasó con `fr-commercial.yaml`,
+editado a mano por la ruta de la raíz el 01/10, que fue un fichero real hasta
+el 06/10 (detectado en #34). Se comprueba con `ls -l openapi/`: los tres
+tienen que ser enlaces.
 
 Si el código y la especificación discrepan, **se corrige el código** ---o se
 pregunta. Toda modificación de contrato empieza por la especificación.
