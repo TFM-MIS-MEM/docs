@@ -1420,16 +1420,16 @@ de desarrollo con `env -u LOG_LEVEL`):
   los seis índices creados en la base de desarrollo por el propio servicio.
 
 **El enlace del contrato no era un enlace.** `repos/openapi/fr-commercial.yaml`
-era un fichero real, de fecha 01/10 12:55. Sin embargo, la entrada de la sesión
-5, «Siguiente paso: `fr-commercial`» y la línea de «Decisiones» afirmaban que
-la raíz conservaba el enlace. **El 01/10 es la sesión 10**, la que editó el
-contrato: sus commits de contrato son del 30/09 (`46f3d77`, `742bb6c`), y la
-fecha del fichero cae dos minutos después del último commit de ESTADO de esa
-sesión (`150059e`, 01/10 12:53). Eso apunta a una herramienta que guardó por la
-ruta de la raíz y sustituyó el enlace por una copia. Lo que guardó no cambió
-nada: el contenido era idéntico byte a byte al del repositorio (`cmp`). Se
-convirtió en enlace antes del commit de contrato, y desde entonces el contrato
-se edita solo por la ruta del repositorio. Hoy:
+era un fichero real, de fecha 01/10 12:55, aunque «Siguiente paso:
+`fr-commercial`» afirmaba que la raíz conservaba el enlace. **Lo sustituyó
+Miguel al editar el contrato a mano por la ruta de la raíz**, sin saber que era
+un enlace; al guardarlo, el enlace quedó convertido en una copia. No fue la
+sesión 10, cuyos commits de contrato son del 30/09 (`46f3d77`, `742bb6c`). Al
+detectarlo, el contenido era idéntico byte a byte al del repositorio (`cmp`),
+de modo que no se perdió nada; pero esta sesión cambiaba el contrato, y sin la
+corrección las dos copias habrían divergido. Se convirtió en enlace antes del
+commit de contrato, y desde entonces el contrato se edita solo por la ruta del
+repositorio, regla que vale igual para las personas que para los agentes. Hoy:
 
 ```
 lrwxr-xr-x@ 1 miguel  staff  38 Aug 29 11:46 auth.yaml -> ../auth-microservice/openapi/auth.yaml
@@ -1469,9 +1469,10 @@ Con ellas entran en CLAUDE.md **dos convenciones nuevas**:
   `test_uniqueness.py`, que cruza `INDEXES` con los cuerpos de petición del
   contrato.
 - **El contrato se edita siempre por su ruta canónica**, la del repositorio de
-  su servicio, nunca a través del enlace de `openapi/`. Una herramienta que
-  guarda sustituyendo el fichero convierte el enlace en una copia sin avisar. Se
-  comprueba con `ls -l openapi/`: los tres tienen que ser enlaces.
+  su servicio, nunca a través del enlace de `openapi/`. Un editor que guarda
+  sustituyendo el fichero, lo use una persona o un agente, convierte el enlace
+  en una copia sin avisar. Se comprueba con `ls -l openapi/`: los tres tienen
+  que ser enlaces.
 
 **La DoD**, en `documentacion/DoD-TFM.docx`, contradice el cambio en el índice
 disperso y no recoge los `409`. Se ha comentado en #112 y no se ha editado.
