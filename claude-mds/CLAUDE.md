@@ -23,16 +23,19 @@ La especificación canónica de cada servicio vive **dentro de su repositorio**:
 |---|---|
 | Auth | `auth-microservice/openapi/auth.yaml` |
 | Pricing | `pricing-microservice/openapi/pricing.yaml` |
-| FR Commercial | `openapi/fr-commercial.yaml` (fichero real **hasta que exista su repositorio**) |
+| FR Commercial | `fr-commercial-microservice/openapi/fr-commercial.yaml` |
 
 Es la única copia versionada, se revisa en el mismo diff que el código que la
 implementa y el `COPY . .` de los `Dockerfile` la mete en la imagen.
 
 Lo que hay en `openapi/` del workspace son **enlaces simbólicos de
 conveniencia** hacia esos ficheros, para que la ruta corta siga funcionando sin
-que existan dos copias que puedan divergir. Editar `openapi/pricing.yaml` edita
-la del repositorio. `fr-commercial.yaml` seguirá siendo fichero real mientras no
-tenga repositorio propio; cuando lo tenga, se mueve y se enlaza igual.
+que existan dos copias que puedan divergir. **El contrato se edita siempre por
+su ruta canónica, nunca a través del enlace**: una herramienta que guarda
+sustituyendo el fichero convierte el enlace en una copia sin avisar. Pasó con
+`fr-commercial.yaml`, que fue un fichero real del 01/10 al 06/10, el mismo día
+en que se editaba el contrato (detectado en #34). Se comprueba con
+`ls -l openapi/`: los tres tienen que ser enlaces.
 
 Si el código y la especificación discrepan, **se corrige el código** ---o se
 pregunta. Toda modificación de contrato empieza por la especificación.
@@ -74,9 +77,16 @@ pregunta. Toda modificación de contrato empieza por la especificación.
 /src/api o /src/routes   → endpoints y enrutamiento
 /src/controllers         → lógica de gestión de peticiones HTTP
 /src/core o /src/utils   → configuración, middlewares, excepciones
-/src/models              → esquemas MongoDB
+/src/models              → esquemas MongoDB (Node) · modelos de la API (fr)
+/src/documents           → esquemas MongoDB (fr)
 /tests                   → pruebas automatizadas
 ```
+
+**En `fr-commercial`, `src/models` son los modelos Pydantic de la API**,
+cerrados con `extra="forbid"`, y la persistencia vive en `src/documents`, cada
+fichero con su `COLLECTION`, sus `INDEXES` y sus `CONFLICTS`. Se decidió así en
+#34 para no mover los modelos de la API, a los que remiten los comentarios de
+#36, #37, #40 y #44.
 
 ### Convenciones de Express
 
@@ -207,6 +217,12 @@ forma de la respuesta:
 - `403` con código en el cuerpo (patrón **Error Report**): `QUOTA_EXCEEDED`,
   `GALLERY_FROZEN_MODEL_NOT_IN_PLAN`, `FEATURE_NOT_IN_PLAN`,
   `MODEL_NOT_IN_PLAN`.
+- `409` con código en el cuerpo: `LAST_FACE_OF_IDENTITY`,
+  `GALLERY_NAME_ALREADY_EXISTS`, `EXTERNAL_ID_ALREADY_EXISTS`. **Todo índice
+  único lleva su `409` declarado en cada operación que escribe sus campos, y
+  se declara antes de crear el índice**: sin él, un valor repetido es un error
+  que el contrato no declara. Lo vigila `test_uniqueness.py`, que cruza
+  `INDEXES` con los cuerpos de petición del contrato (#34).
 - `429` **solo** para rate limit: es operacional, no económico. La cuota
   agotada es `403`.
 - `410 Gone` para retos de liveness caducados.
@@ -272,10 +288,11 @@ del fichero.
 ```
 Gallery   accountId, name, description, model(enum), status(enum),
           frozenReason(enum?), identityCount, faceCount, timestamps
-          índices: {accountId}, {accountId, name} único
+          índices: {accountId, name} único (comparación exacta)
 
 Identity  galleryId, fullName, externalId?, faceCount, timestamps
-          índices: {galleryId}, {galleryId, externalId} único disperso
+          índices: {galleryId}, {galleryId, externalId} único parcial
+                   (solo si externalId es una cadena)
 
 Face      identityId, galleryId, embedding(Binary), isBinarized,
           source, createdAt
@@ -292,6 +309,22 @@ consulta del camino caliente.
 **Contadores desnormalizados** (`identityCount`, `faceCount`): el límite de
 rostros indexados es de **estado**, no acumulativo — se evalúa consultando el
 valor actual. Prever reconciliación periódica.
+
+**Índices (medido en #34).** Un índice compuesto **disperso** no admite dos
+documentos sin el campo opcional si el otro campo está siempre: los indexa
+igual, como `null`. Por eso el de `externalId` es **parcial**
+(`$type: "string"`), `externalId` se guarda ausente, nunca `null` ni vacío, y
+el contrato le exige `minLength: 1`. El planificador no usa el parcial sin su
+predicado, así que `{galleryId}` suelto **no** es redundante; `{accountId}` sí
+lo era, porque lo sirve el prefijo del compuesto. Si un índice no se puede
+crear, el servicio no arranca, y **cambiar la forma de un índice exige una
+migración explícita**. Las operaciones escriben sin comprobar antes y
+traducen `DuplicateKeyError` a `409` según el índice que saltó (`keyPattern`),
+no solo por el código 11000.
+
+**`faceCount` de la identidad empieza en 0**, y el `$inc` va después de
+insertar el rostro: así el contador nunca dice más de lo que hay, y una
+identidad huérfana tras una caída es la que tiene `faceCount` 0.
 
 **Sin límite de rostros por identidad.** El límite económico ya existe: cada
 rostro computa sobre la cuota.
