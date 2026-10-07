@@ -6,8 +6,8 @@
 > **Última actualización:** sesión 11: #34 (F2), modelos de persistencia e
 > índices de `fr-commercial`, con el `409` de cada índice único declarado en el
 > contrato y el índice de `externalId` parcial, no disperso. Fusionado en
-> `fr-commercial-microservice` (`da38e25`, PR #3); #34 cerrado. Memoria sin
-> tocar. Siguiente paso: por decidir.
+> `fr-commercial-microservice` (`da38e25`, PR #3); #34 cerrado. Memoria en
+> `v12`. Siguiente paso: por decidir.
 
 ---
 
@@ -1450,7 +1450,8 @@ lrwxr-xr-x@ 1 miguel  staff  44 Aug 29 11:46 pricing.yaml -> ../pricing-microser
   «Inputs: Name», cuando el contrato admite también `externalId`, a propósito.
 
 **Líneas de CLAUDE.md que este cambio dejaba falsas** ---**aplicadas por
-Miguel** en `docs` (`4d35a3f`)---:
+Miguel** en `docs` (`4d35a3f`, y la corrección del párrafo del enlace en
+`e321c1e`)---:
 
 - l. 77, «`/src/models → esquemas MongoDB`»: son los modelos de la API; los de
   persistencia están en `/src/documents`.
@@ -1476,6 +1477,26 @@ Con ellas entran en CLAUDE.md **dos convenciones nuevas**:
 
 **La DoD**, en `documentacion/DoD-TFM.docx`, contradice el cambio en el índice
 disperso y no recoge los `409`. Se ha comentado en #112 y no se ha editado.
+
+**La memoria se actualizó**, en `memoria_tex/v12`: cuatro parches en tres
+capítulos, con `parches-memoria-sesion11.tex` recogiendo el reparto y el mismo
+criterio de las sesiones 3 a 10. **Ninguno es corrección**: la memoria no había
+descrito nunca la forma de los índices ---el «único disperso» vivía en la DoD y
+en CLAUDE.md---, de modo que la medición no desmiente ningún texto publicado.
+Los cuatro son inserciones, y los recuentos ya escritos siguen exactos: el
+parche del capítulo 4 continúa la tercera decisión de §4.3 sin `\paragraph`
+propio, como en la sesión 10; en §6.2.1, «Tres decisiones de modelado» se
+conserva porque el contador de la identidad continúa la primera y la unicidad
+va a una subsección propia de §6.3, no como cuarta decisión; y el capítulo 8
+cita la cuarta forma de guardián de §8.4 sin añadir una quinta. El anexo de
+modelos de datos sigue en `%% TODO`: la relación de índices que pide ya tiene
+material, y no se ha escrito.
+
+| Capítulo | Cambio |
+|---|---|
+| 4 — Diseño del servicio | Un parche, al final de §4.3: la regla de declaración alcanza a lo que **impone el almacenamiento**. El nombre de la galería, único en la cuenta, y el identificador externo, único en la galería, se declaran como rechazo propio en cada operación capaz de violarlos, y antes de imponerse; sin declararlo, un valor repetido es un rechazo que el integrador no puede distinguir de un fallo. Qué cuenta como valor: la ausencia se admite cuantas veces haga falta, la cadena vacía se rechaza en lugar de leerse como ausencia, y la comparación de nombres es exacta |
+| 6 — Implementación | Dos parches. En §6.2.1, el contador de rostros de la identidad **nace a cero** y se incrementa después de registrar cada rostro, de modo que nunca afirma más de los que existen; sin transacciones, una interrupción deja una identidad huérfana que su propio contador delata. Y `\subsection{Restricciones de unicidad del modelo de datos}`, nueva tras la de cierre de los esquemas: el contrato cambiado antes que el índice; el disperso que indexa la ausencia como nulo en un compuesto, sustituido por el parcial, y la longitud mínima que exige la cadena vacía; el índice por galería que el parcial no hace redundante y el de cuenta que el compuesto sí; la escritura sin comprobación previa, con el rechazo según la restricción que saltó; la negativa a arrancar, con lo que se ve en cada despliegue y la migración que exige cambiar la forma de un índice; y los modelos de persistencia, que ignoran lo que no modelan mientras los del contrato lo rechazan |
+| 8 — Validación | Un parche, `\subsection{Una restricción que el diseño daba por resuelta}`, nueva al final de §8.1: el primer cambio de contrato que nace del modelo de datos; la sospecha razonada que la medición superó, y por qué exige el motor real y no un sustituto; la comprobación cruzada entre código y especificación, con un **suelo** para que no pueda satisfacerse sobre un conjunto vacío; y que **una prueba de admisión no puede fallar por la ausencia de la restricción**, sino que vigila la restricción que sobra, de modo que solo emparejada con la de rechazo cubre los dos defectos. La forma dispersa la habría delatado una de admisión |
 
 ### La fase 1 NO está terminada
 
