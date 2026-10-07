@@ -3,11 +3,8 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 11: #34 (F2), modelos de persistencia e
-> índices de `fr-commercial`, con el `409` de cada índice único declarado en el
-> contrato y el índice de `externalId` parcial, no disperso. Fusionado en
-> `fr-commercial-microservice` (`da38e25`, PR #3); #34 cerrado. Memoria en
-> `v12`. Siguiente paso: por decidir.
+> **Última actualización:** sesión 12: replanificación por plazo (entrega
+> 29/10) y etiquetado del backlog. Memoria en `v12`. Siguiente paso: F5 (#37).
 
 ---
 
@@ -1498,6 +1495,21 @@ material, y no se ha escrito.
 | 6 — Implementación | Dos parches. En §6.2.1, el contador de rostros de la identidad **nace a cero** y se incrementa después de registrar cada rostro, de modo que nunca afirma más de los que existen; sin transacciones, una interrupción deja una identidad huérfana que su propio contador delata. Y `\subsection{Restricciones de unicidad del modelo de datos}`, nueva tras la de cierre de los esquemas: el contrato cambiado antes que el índice; el disperso que indexa la ausencia como nulo en un compuesto, sustituido por el parcial, y la longitud mínima que exige la cadena vacía; el índice por galería que el parcial no hace redundante y el de cuenta que el compuesto sí; la escritura sin comprobación previa, con el rechazo según la restricción que saltó; la negativa a arrancar, con lo que se ve en cada despliegue y la migración que exige cambiar la forma de un índice; y los modelos de persistencia, que ignoran lo que no modelan mientras los del contrato lo rechazan |
 | 8 — Validación | Un parche, `\subsection{Una restricción que el diseño daba por resuelta}`, nueva al final de §8.1: el primer cambio de contrato que nace del modelo de datos; la sospecha razonada que la medición superó, y por qué exige el motor real y no un sustituto; la comprobación cruzada entre código y especificación, con un **suelo** para que no pueda satisfacerse sobre un conjunto vacío; y que **una prueba de admisión no puede fallar por la ausencia de la restricción**, sino que vigila la restricción que sobra, de modo que solo emparejada con la de rechazo cubre los dos defectos. La forma dispersa la habría delatado una de admisión |
 
+**Sesión 12 — replanificación por plazo (entrega 29/10) y etiquetado del
+backlog.** Sin código. Alcance recortado: `fr-commercial` funcional con los tres
+modelos EdgeFace, CRUD de galerías e identidades, verificación y búsqueda 1:N, y
+la campaña SCALE/MoST como aportación central; después, la demo (frontend
+sencillo y mockup de banca, #115); SPACE y límites, si da tiempo. Etiquetas
+nuevas, exactamente una por issue abierto: `prio:1-medicion` 7, `prio:2-demo` 4,
+`prio:3-si-da-tiempo` 6 y `alcance:futuro` 53, estos con comentario y sin
+cerrar; `prio:bloqueante` queda sin issues abiertos. **#106 ya no bloquea F4**:
+queda como limitación del entorno de desarrollo (comentado en #36 y #106). La
+medición se hará **en CPU, dentro de Docker**: Docker Desktop no expone la GPU
+del M5 (Apple M5, 10 núcleos, 16 GB; la VM de Docker, ~7,7 GiB). **Sin
+`torch.hub`**: el código de EdgeFace y MTCNN se toma de `fr-compilation` y los
+pesos se versionan en el repositorio del servicio. CLAUDE.md gana la sección
+«Modo entrega» (`1c56b6f`). Nada fusionado en los repositorios de servicio.
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -1578,7 +1590,16 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: por decidir al cerrar la sesión 11
+### Siguiente paso: F5 (#37), carga de modelos e inferencia sin estado
+
+Orden previsto: F5 (#37) → instrumento de carga → F3 (#35) → F4 (#36) con F6
+(#38) → F8 (#40) → campaña (#62) → demo. **La campaña tiene que empezar antes
+del 15/10.**
+
+#### ~~Siguiente paso: por decidir al cerrar la sesión 11~~ — decidido en la sesión 12
+
+Se conserva el enunciado anterior. Lo que dice de #106 dejó de valer en la
+sesión 12: ya no bloquea F4.
 
 F2 está hecho y fusionado: PR #3 de `fr-commercial-microservice`, commit de
 fusión `da38e25`, CI de `main` `37501294383` en verde, #34 cerrado.
