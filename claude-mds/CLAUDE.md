@@ -607,3 +607,20 @@ crearon contra una versión previa del diseño.
    ---la segunda, en #33, una prueba de alcanzabilidad por la IP de LAN imprimió
    `exit=0` y era el de `tail`---. Se ejecuta la orden sin tubería, o se guarda
    su salida en un fichero y se imprime después, o se lee `PIPESTATUS`.
+
+## Modo entrega (desde la sesión 12, hasta el 29/10)
+
+El objetivo hasta la entrega es funcionalidad visible y la campaña de
+medición. Prioridades por etiqueta: `prio:1-medicion`, luego `prio:2-demo`,
+luego `prio:3-si-da-tiempo`. Lo etiquetado `alcance:futuro` no se toca.
+
+- Cada operación nueva lleva sus pruebas de contrato contra el `.yaml`. No se
+  escriben guardianes nuevos sobre el propio instrumento de pruebas.
+- Lo que se encuentre fuera del encargo se registra como issue de una línea
+  con `alcance:futuro` y no se trabaja, salvo que bloquee la tarea en curso.
+- Un PR puede cerrar varios issues si van juntos.
+- Se mide lo que sostiene un resultado; no se mide cada afirmación de paso.
+- La CI se mantiene en verde; un rojo ajeno al cambio que no bloquee se
+  registra y no se arregla en la sesión.
+- ESTADO.md, una entrada breve por sesión: qué se hizo, qué se fusionó, qué
+  queda.
