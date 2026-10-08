@@ -3,8 +3,9 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 12: replanificación por plazo (entrega
-> 29/10) y etiquetado del backlog. Memoria en `v12`. Siguiente paso: F5 (#37).
+> **Última actualización:** sesión 13: F5 (#37), carga de los tres modelos e
+> inferencia sin estado, fusionado. Memoria en `v12`. Siguiente paso: el
+> instrumento de carga.
 
 ---
 
@@ -1511,10 +1512,11 @@ pesos se versionan en el repositorio del servicio. CLAUDE.md gana la sección
 «Modo entrega» (`1c56b6f`). Nada fusionado en los repositorios de servicio.
 
 **Sesión 13 — F5 (#37), carga de los tres modelos e inferencia sin estado.**
-Se abrió el PR #4 de `fr-commercial-microservice` (`fase2/37`, 6 commits);
-**sin fusionar**, a la espera de visto bueno. Cierra #37 y referencia #38. CI
-del PR en verde en x86_64 (`37773984370`: 359 pruebas, cobertura 99,16 %,
-auditoría de torch limpia), y el compose de desarrollo, `healthy`.
+**Fusionado**: PR #4 de `fr-commercial-microservice` (`fase2/37`, 6 commits),
+con commit de fusión `8166472`; CI de `main` `37776654252` en verde; #37
+cerrado, #38 referenciado. CI del PR en verde en x86_64 (`37773984370`: 359
+pruebas, cobertura 99,16 %, auditoría de torch limpia), y el compose de
+desarrollo, `healthy`.
 
 - **Qué hay.** `detectFaces`, `verifyPair` y `extractEmbedding`. Los tres
   EdgeFace y MTCNN, en CPU, se cargan en el `lifespan` y, si falta un peso, el
@@ -1545,8 +1547,8 @@ auditoría de torch limpia), y el compose de desarrollo, `healthy`.
   desarrollo), #118 (EXIF) y #119 (formatos de imagen). Comentarios en #38
   (192 B) y en #36 (`createIdentity` y `addFace` heredan el
   `400 EMBEDDING_INPUT_NOT_SUPPORTED`).
-- **Queda.** Fusionar #4. Después, el orden previsto: instrumento de carga →
-  F3 → F4 con F6 → F8 → campaña, que tiene que empezar antes del 15/10.
+- **Queda.** El orden previsto: instrumento de carga → F3 → F4 con F6 → F8 →
+  campaña, que tiene que empezar antes del 15/10.
 
 **Cambios que afectan a la memoria:**
 
@@ -1562,6 +1564,7 @@ auditoría de torch limpia), y el compose de desarrollo, `healthy`.
 | Pruebas | `make test` y el gancho de pytest corren en el contenedor de desarrollo (`+cpu` no existe en macOS); la comparación estática cubre las operaciones multipart sin el cuerpo, con el motivo escrito |
 | Dependencias y CI | Índice CPU de PyTorch; paso de auditoría de torch y torchvision sin `+cpu`; `check-added-large-files` excluye `checkpoints/` |
 | Licencias | Pesos de EdgeFace CC BY-NC-SA 4.0 (uso no comercial); código BSD-3 y MIT |
+| Memoria, capítulo 7 | La matriz de capacidad cruzaba la detección con los tres modelos; la detección no depende del modelo y ahora es una sola celda |
 
 ### La fase 1 NO está terminada
 
@@ -1643,7 +1646,17 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: F5 (#37), carga de modelos e inferencia sin estado
+### Siguiente paso: el instrumento de carga
+
+Orden previsto: instrumento de carga → F3 (#35) → F4 (#36) con F6 (#38) → F8
+(#40) → campaña (#62) → demo. **La campaña tiene que empezar antes del 15/10.**
+El instrumento fija `TORCH_NUM_THREADS` e `INFERENCE_CONCURRENCY` antes de
+medir: con los valores por omisión, la dispersión de las latencias de F5 cubre
+las diferencias entre modelos (PR #4 de `fr-commercial-microservice`).
+
+#### ~~Siguiente paso: F5 (#37), carga de modelos e inferencia sin estado~~ — hecho en la sesión 13
+
+Se conserva el enunciado anterior.
 
 Orden previsto: F5 (#37) → instrumento de carga → F3 (#35) → F4 (#36) con F6
 (#38) → F8 (#40) → campaña (#62) → demo. **La campaña tiene que empezar antes
@@ -1944,6 +1957,12 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
   código que el contrato no fija. Las dos cosas se deciden con F11 (#43) y en la
   sesión que conecte `fr` a la pasarela (#104); la dependencia se diseñó para
   admitir política por operación precisamente por esto.
+
+  **Decidido en la sesión 13 para `extractEmbedding`:** el canal web recibe
+  `401 API_CHANNEL_REQUIRED`, declarado en el contrato (un JWT no es una
+  credencial admitida para una operación que declara solo `apiKeyAuth`).
+  Quedan `createEnrollmentToken`, que seguirá el mismo criterio, y las 5 con
+  token de enrolamiento.
 - **Qué hacer con `RESEND_API_KEY`.** No puede ser obligatoria en desarrollo
   ---se trabaja sin ella y el arnés usa una falsa---, de modo que la guarda de
   arranque que se le aplicó a las demás no le vale tal cual. ¿Se exige sólo con
@@ -1960,9 +1979,12 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
   estructura comercial del canal web, no las condiciones de capacidad del canal
   programático. Confirmar con el tutor si ACM2YAML está disponible; las
   limitaciones encontradas son contribución de retorno al ecosistema.
-- **Alcance de la campaña de medición.** Nueve perfiles (tres modelos × tres
-  operaciones), con tamaño de imagen y de galería fijos. La variación de esas
-  dos dimensiones queda como trabajo futuro declarado.
+- **Alcance de la campaña de medición.** ~~Nueve perfiles (tres modelos × tres
+  operaciones)~~ **Siete perfiles** desde la sesión 13, salvo que la sesión del
+  instrumento decida otra cosa: uno de detección, que no depende del modelo
+  (`detectFaces` ya no admite `model`); tres de verificación y tres de
+  búsqueda, uno por modelo. Tamaño de imagen y de galería fijos. La variación
+  de esas dos dimensiones queda como trabajo futuro declarado.
 - **Ubicación de la lógica del límite en unidades.** Los límites expresados en
   unidades de capacidad no pueden aplicarse con los mecanismos declarativos de
   Kong, que operan sobre recuentos de peticiones. Pasarela mediante extensión,
