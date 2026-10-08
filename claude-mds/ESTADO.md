@@ -1510,6 +1510,59 @@ del M5 (Apple M5, 10 núcleos, 16 GB; la VM de Docker, ~7,7 GiB). **Sin
 pesos se versionan en el repositorio del servicio. CLAUDE.md gana la sección
 «Modo entrega» (`1c56b6f`). Nada fusionado en los repositorios de servicio.
 
+**Sesión 13 — F5 (#37), carga de los tres modelos e inferencia sin estado.**
+Se abrió el PR #4 de `fr-commercial-microservice` (`fase2/37`, 6 commits);
+**sin fusionar**, a la espera de visto bueno. Cierra #37 y referencia #38. CI
+del PR en verde en x86_64 (`37773984370`: 359 pruebas, cobertura 99,16 %,
+auditoría de torch limpia), y el compose de desarrollo, `healthy`.
+
+- **Qué hay.** `detectFaces`, `verifyPair` y `extractEmbedding`. Los tres
+  EdgeFace y MTCNN, en CPU, se cargan en el `lifespan` y, si falta un peso, el
+  servicio no arranca. El código viene de `fr-compilation` sin `torch.hub` y
+  los pesos se versionan en `checkpoints/`. Con torch 2.14.1+cpu y timm 1.0.30
+  reproduce los `.npy` de `results/` (coseno ≥ 0,99985).
+- **LSSC.** Es el método de `utils/tools_binarized.py` sobre el vector **sin
+  normalizar**: 3 bits por dimensión, **192 B, no 64 B**. Los cortes se
+  calcularon sobre todas las identidades de LFW y quedan como constantes de `v1`.
+  `verifyPair` compara por Hamming, con `confidence = 1 − d/1536` y d_max de
+  479 / 466 / 520 (FAR ≤ 1e-4).
+- **Medido.** Imagen del servicio: 1,79 GB. Carga de los modelos: 1,3 s. La
+  latencia aislada va de 43 a 145 ms de mediana con imágenes de 240 × 320,
+  pero con mucha dispersión, así que **no sirve para comparar modelos**. Pico
+  de RSS: 1389 MiB en `verifyPair base` con dos imágenes de 4096². Las cifras
+  completas están en el PR.
+- **Hallazgos.**
+  - `TORCH_NUM_THREADS` es estado **por hilo** (OpenMP), así que se fija en
+    cada hilo de trabajo.
+  - El `torch` de PyPI trae CUDA también en aarch64; se usa el índice CPU.
+  - `pip-audit` se salta las versiones `+cpu` con exit 0; un paso aparte de
+    la CI las audita sin la etiqueta.
+  - El `chown -R` del Dockerfile duplicaba 97 MB de pesos.
+  - **Los pesos de EdgeFace son CC BY-NC-SA 4.0**: un despliegue comercial
+    necesitaría otros.
+- **Issues.** Nuevos, con `alcance:futuro`: #116 (tope de bytes en la pasarela
+  y lectura tras la identidad), #117 (secreto de desarrollo fuera de
+  desarrollo), #118 (EXIF) y #119 (formatos de imagen). Comentarios en #38
+  (192 B) y en #36 (`createIdentity` y `addFace` heredan el
+  `400 EMBEDDING_INPUT_NOT_SUPPORTED`).
+- **Queda.** Fusionar #4. Después, el orden previsto: instrumento de carga →
+  F3 → F4 con F6 → F8 → campaña, que tiene que empezar antes del 15/10.
+
+**Cambios que afectan a la memoria:**
+
+| Dónde | Cambio |
+|---|---|
+| Contrato, `detectFaces` | Sin `model`; rostros por confianza; sin rostros, `200` con `faces: []`; recorte alineado de 112 × 112 en PNG |
+| Contrato, `verifyPair` | Hamming sobre LSSC, el mismo comparador que contra galería; `confidence = 1 − d/1536`; umbral por omisión por modelo (0,6882 / 0,6966 / 0,6615); vectores rechazados con `400 EMBEDDING_INPUT_NOT_SUPPORTED` hasta F7 |
+| Contrato, `extractEmbedding` | `embedding` = código LSSC de 192 B o 512 `float32` LE sin normalizar; `401 API_CHANNEL_REQUIRED` desde el canal web; modelo con versión (`xs-v1`) |
+| Contrato, imágenes | `400 INVALID_IMAGE`, `IMAGE_TOO_LARGE` (> 4096 px por lado, en la cabecera) y `NO_FACE_DETECTED`; `VerificationResult.confidence` y `thresholdUsed` en [0, 1] |
+| Embeddings (CLAUDE.md y memoria) | 192 B por rostro, no 64 B; 9,6 MB por galería de 50.000. La cifra de CLAUDE.md la corrige Miguel |
+| Configuración | `EMBEDDING_TOKEN_SECRET` obligatorio (`:?` en producción, valor explícito en desarrollo); `TORCH_NUM_THREADS` e `INFERENCE_CONCURRENCY` (1) para la campaña |
+| Token de procedencia | HMAC-SHA256 sobre modelo, representación y SHA-256 del vector, formato `v1.<carga>.<firma>`; nadie lo verifica hasta F7 |
+| Pruebas | `make test` y el gancho de pytest corren en el contenedor de desarrollo (`+cpu` no existe en macOS); la comparación estática cubre las operaciones multipart sin el cuerpo, con el motivo escrito |
+| Dependencias y CI | Índice CPU de PyTorch; paso de auditoría de torch y torchvision sin `+cpu`; `check-added-large-files` excluye `checkpoints/` |
+| Licencias | Pesos de EdgeFace CC BY-NC-SA 4.0 (uso no comercial); código BSD-3 y MIT |
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
