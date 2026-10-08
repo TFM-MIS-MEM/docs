@@ -334,8 +334,15 @@ rostro computa sobre la cuota.
 
 ## Embeddings
 
-- **Se almacenan binarizados** (64 B frente a 2 KB en float32; 3,2 MB frente a
-  100 MB en una galería de 50.000). Comparación por distancia de Hamming.
+- **Se almacenan binarizados con LSSC**: 192 B frente a 2 KB en float32
+  (9,6 MB frente a 100 MB en una galería de 50.000). Cada una de las 512 dimensiones del vector, sin normalizar, se asigna a uno de 4 intervalos con
+  tres cortes fijos por modelo y se codifica en 3 bits como termómetro. Los
+  cortes forman parte de la versión del modelo (`xs-v1`…): cambiarlos invalida
+  los códigos guardados. Comparación por distancia de Hamming; la similitud
+  es 1 − d/1536, en [0, 1], la misma en todas las operaciones que comparan.
+- **Los pesos de EdgeFace son CC BY-NC-SA 4.0** (el código, BSD-3-Clause), y
+  están entrenados con WebFace260M, de uso no comercial. Valen para el TFM; un
+  despliegue comercial necesitaría otros pesos.
 - El cuello de botella de 1:N **no es la inferencia, es la recuperación de
   vectores**. De ahí el término `f(n_galería)` en la fórmula de unidades.
 - El modelo es **atributo inmutable de la galería**. Vectores de modelos
@@ -526,8 +533,7 @@ Webhooks salientes: firma HMAC-SHA256 sobre `timestamp + "." + cuerpo_crudo`
   pero publica `application/x-www-form-urlencoded`, que es falso frente al
   contrato. Con parámetros `File()`/`Form()` sueltos, la parte de más se ignora
   (`200`). Si se lee el flujo a mano, el cierre es una lista explícita de las
-  partes declaradas. Requiere `python-multipart`, que no está en el árbol
-  fijado hasta F4.
+  partes declaradas. Requiere `python-multipart`, en el árbol fijado desde F5 (#37).
 - **En los contratos, ninguna clave es un escalar sin comillas que YAML 1.1 lea
   como booleano o nulo, y ningún valor es `y`, `n`, `yes`, `no`, `on` ni `off`
   sin comillas.** Los lectores discrepan (PyYAML no aplica `y`/`n`; js-yaml es
