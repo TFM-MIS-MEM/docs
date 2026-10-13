@@ -384,6 +384,13 @@ u = n_inferencias × peso_modelo  [+ f(tamaño_galería) en búsquedas]
 Pesos (**hipótesis pendiente de medición empírica**): detector 1, `xs` 1,
 `s` 3, `base` 10. Operaciones sin inferencia: 0,1. Gestión: 0.
 
+**Medición parcial (sesión 14, #120): esos pesos no se sostienen.** Con
+imágenes de 480 × 640, los tres modelos cuestan lo mismo dentro del error del
+método (~10 %), y una verificación cuesta unas tres detecciones con cualquiera
+de ellos: MTCNN es la mayor parte del coste. Los pesos definitivos salen de
+`analyze.py` al cerrar la campaña (#62). Hasta entonces, no implementar nada
+que dependa de 1 / 3 / 10.
+
 Se calcula en `fr-commercial` (único que conoce modelo, número de inferencias y
 tamaño de galería) y se reporta **asíncronamente** a `pricing` con las
 dimensiones cuenta, canal, modelo y endpoint. Consistencia eventual aceptada y
@@ -630,3 +637,15 @@ luego `prio:3-si-da-tiempo`. Lo etiquetado `alcance:futuro` no se toca.
   registra y no se arregla en la sesión.
 - ESTADO.md, una entrada breve por sesión: qué se hizo, qué se fusionó, qué
   queda.
+- **Mediciones de carga (`fr-commercial-microservice/load/`).** Configuración
+  fijada para toda la campaña: `WEB_CONCURRENCY=1`, `TORCH_NUM_THREADS=1`,
+  `INFERENCE_CONCURRENCY=8`. El instrumento está congelado en `b6fff3d`: si
+  cambian `criteria.py`, `most.py` o `k6/profile.js`, se repite la calibración.
+- **Antes de medir, el agente para y avisa**, y Miguel prepara el Mac: solo
+  Docker, VS Code y el chat abiertos; enchufado y sin bajo consumo;
+  `caffeinate -i`; `docker ps` vacío, con la pila de desarrollo y el `fr` de
+  desarrollo parados. Las mediciones las lanza Miguel desde una terminal con
+  `nohup caffeinate -i … < /dev/null`, sin el `< /dev/null` el proceso se
+  suspende. Mientras miden, el agente no hace ninguna llamada, ni de estado.
+  Si una medición sale rara, primero se descartan las condiciones de la
+  máquina y después se mira el servicio.
