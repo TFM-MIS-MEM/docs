@@ -5,7 +5,7 @@
 >
 > **Última actualización:** sesión 14: instrumento de carga MoST (#120) y
 > primera tanda de la campaña (cuatro de siete perfiles), PR #5 de
-> `fr-commercial-microservice` pendiente de fusión. Siguiente paso: F3 → F4
+> `fr-commercial-microservice` fusionado. Siguiente paso: F3 → F4
 > con F6 → F8 → los tres perfiles 1:N.
 
 ---
@@ -1568,9 +1568,12 @@ desarrollo, `healthy`.
 | Memoria, capítulo 7 | La matriz de capacidad cruzaba la detección con los tres modelos; la detección no depende del modelo y ahora es una sola celda |
 
 **Sesión 14 — instrumento de carga MoST (#120) y primera tanda de la campaña.**
-PR #5 de `fr-commercial-microservice` (`fase4/120`), pendiente de fusión;
-cierra #120 y referencia #62. Instrumento congelado en `b6fff3d`; 175 corridas,
-todas válidas.
+**Fusionado**: PR #5 de `fr-commercial-microservice` (`fase4/120`, 4 commits),
+con commit de fusión `3b15df6`; CI de `main` `38372847972` en verde; #120
+cerrado, #62 referenciado. Antes de fusionar se comprobó que la cabeza seguía
+en `bed0d8e`, con su CI (`38362849316`) en verde, y que
+`closingIssuesReferences` era exactamente `TFM-MIS-MEM/docs#120`. Instrumento
+congelado en `b6fff3d`; 175 corridas, todas válidas.
 
 - **Qué hay.** `load/`: k6 con tasa de llegada constante contra la imagen de
   producción, sin pasarela, red `internal` propia y cpusets disjuntos
@@ -1599,7 +1602,7 @@ todas válidas.
   criterio relativo deja pasar corridas congestionadas que no crecen (w4t1c1 a
   13,75: 653→667 ms); no cambió la elección.
 - **Queda.** Los tres perfiles 1:N (~6–8 h) y la siembra de galerías (~1 h por
-  galería por la API, minutos directo en MongoDB), tras F8. Fusionar PR #5.
+  galería por la API, minutos directo en MongoDB), tras F8.
 
 | Dónde | Cambio |
 |---|---|
@@ -1692,7 +1695,6 @@ Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
 Con el instrumento hecho y cuatro de los siete perfiles medidos (sesión 14),
 lo que falta de la campaña depende de F8 y de cómo se siembren las galerías.
-Fusionar antes el PR #5 de `fr-commercial-microservice`.
 
 #### ~~Siguiente paso: el instrumento de carga~~ — hecho en la sesión 14
 
@@ -2027,12 +2029,15 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
   estructura comercial del canal web, no las condiciones de capacidad del canal
   programático. Confirmar con el tutor si ACM2YAML está disponible; las
   limitaciones encontradas son contribución de retorno al ecosistema.
-- **Alcance de la campaña de medición.** ~~Nueve perfiles (tres modelos × tres
-  operaciones)~~ **Siete perfiles** desde la sesión 13, salvo que la sesión del
-  instrumento decida otra cosa: uno de detección, que no depende del modelo
-  (`detectFaces` ya no admite `model`); tres de verificación y tres de
-  búsqueda, uno por modelo. Tamaño de imagen y de galería fijos. La variación
-  de esas dos dimensiones queda como trabajo futuro declarado.
+- ~~**Alcance de la campaña de medición.**~~ **Decidido en la sesión 14:
+  siete perfiles**, uno de detección, que no depende del modelo (`detectFaces`
+  ya no admite `model`), tres de verificación (`verifyPair`) y tres de búsqueda
+  1:N, uno por modelo. **Imagen fija de 480 × 640** y **configuración
+  `w1t1c8`** (1 worker, 1 hilo de torch, 8 inferencias concurrentes) para
+  todos. **Cuatro medidos en la sesión 14** (detección y las tres
+  verificaciones); **los tres de 1:N, pendientes de F8**, con tamaño de galería
+  fijo. La variación del tamaño de imagen y de galería queda como trabajo futuro
+  declarado.
 - **Ubicación de la lógica del límite en unidades.** Los límites expresados en
   unidades de capacidad no pueden aplicarse con los mecanismos declarativos de
   Kong, que operan sobre recuentos de peticiones. Pasarela mediante extensión,
