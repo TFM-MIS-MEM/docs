@@ -3,9 +3,10 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 13: F5 (#37), carga de los tres modelos e
-> inferencia sin estado, fusionado. Memoria en `v12`. Siguiente paso: el
-> instrumento de carga.
+> **Última actualización:** sesión 14: instrumento de carga MoST (#120) y
+> primera tanda de la campaña (cuatro de siete perfiles), PR #5 de
+> `fr-commercial-microservice` pendiente de fusión. Siguiente paso: F3 → F4
+> con F6 → F8 → los tres perfiles 1:N.
 
 ---
 
@@ -1566,6 +1567,47 @@ desarrollo, `healthy`.
 | Licencias | Pesos de EdgeFace CC BY-NC-SA 4.0 (uso no comercial); código BSD-3 y MIT |
 | Memoria, capítulo 7 | La matriz de capacidad cruzaba la detección con los tres modelos; la detección no depende del modelo y ahora es una sola celda |
 
+**Sesión 14 — instrumento de carga MoST (#120) y primera tanda de la campaña.**
+PR #5 de `fr-commercial-microservice` (`fase4/120`), pendiente de fusión;
+cierra #120 y referencia #62. Instrumento congelado en `b6fff3d`; 175 corridas,
+todas válidas.
+
+- **Qué hay.** `load/`: k6 con tasa de llegada constante contra la imagen de
+  producción, sin pasarela, red `internal` propia y cpusets disjuntos
+  (aislamiento lógico, no físico: 8 vCPU ocupados rinden como ~3,3 sueltos).
+  Tres restricciones iguales en las dos ventanas (60 s y 600 s); la de latencia
+  compara **medianas** de tercios (≤ 1,5), no p95. Precondiciones que bloquean,
+  corridas inválidas que se repiten, `analyze.py` que recalcula todo.
+- **Medido.**
+  - Calibración: MST 9,31 y MIT 9,03 frente a 9,69/s medidos dentro del
+    contenedor (el `sleep(0.1)` dura 103 ms; la hipótesis del GIL, refutada).
+    La banda [9,4, 10,0] no se cumple; **error del procedimiento declarado:
+    hasta ~10 %** (5 % de bisección + 5 % si la confirmación baja un escalón).
+    Un 2,4 % entre lo que mide el contenedor y lo que ve k6, sin explicar.
+  - Configuración fijada: **1 worker × 1 hilo × concurrencia 8** (criba de
+    siete, con 2, 4 y 8 workers incluidos).
+  - **verifyPair xs: MIT 17,10, MST 13,34, ráfaga 1,28** (entregable).
+    Datos de #62: base 17,50 / 12,30; s 18,50 / 13,32; detectFaces 51,30 / 38,99.
+    σ_S ≈ 2,9–3,2 de verificación frente a detección; **entre modelos, la
+    diferencia no supera el error del método**: a 480 × 640 manda MTCNN.
+  - La capacidad cae los primeros ~3 min de carga plena y luego se estabiliza
+    (deriva a 15,75/s: 13,55/s constantes del minuto 4 al 15). Causa térmica,
+    hipótesis no medida.
+- **Errores y lecciones.** La deriva se lanzó al 90 % del MIT y no del MST
+  (error de especificación): no pasó la puerta, se informa como peor caso y no
+  se repite. La cadena del viernes se suspendió por faltar `< /dev/null`. El
+  criterio relativo deja pasar corridas congestionadas que no crecen (w4t1c1 a
+  13,75: 653→667 ms); no cambió la elección.
+- **Queda.** Los tres perfiles 1:N (~6–8 h) y la siembra de galerías (~1 h por
+  galería por la API, minutos directo en MongoDB), tras F8. Fusionar PR #5.
+
+| Dónde | Cambio |
+|---|---|
+| Memoria, capítulo 7 | Ventanas 60 s / 600 s, calentamiento de 30 s al 50 %, mediana de tercios ≤ 1,5, bisección al 5 %, confirmación 3 de 3 con dos bajadas del 5 %; error del procedimiento hasta ~10 % |
+| Memoria, capítulo 7 | Calibración que no cumple su banda previa, con la capacidad medida aparte como referencia; aislamiento por cpuset lógico; capacidad que cae los primeros minutos (hipótesis térmica) |
+| Pricing (memoria y CLAUDE.md) | Los pesos hipotéticos (detector 1; xs 1, s 3, base 10) no se sostienen a 480 × 640: verificar ≈ 3 detecciones con cualquier modelo. Lo corrige #62 al cerrar la campaña |
+| Configuración de `fr` | `WEB_CONCURRENCY=1`, `TORCH_NUM_THREADS=1`, `INFERENCE_CONCURRENCY=8` para la campaña |
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -1646,7 +1688,13 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: el instrumento de carga
+### Siguiente paso: F3 (#35) → F4 (#36) con F6 (#38) → F8 (#40) → perfiles 1:N
+
+Con el instrumento hecho y cuatro de los siete perfiles medidos (sesión 14),
+lo que falta de la campaña depende de F8 y de cómo se siembren las galerías.
+Fusionar antes el PR #5 de `fr-commercial-microservice`.
+
+#### ~~Siguiente paso: el instrumento de carga~~ — hecho en la sesión 14
 
 Orden previsto: instrumento de carga → F3 (#35) → F4 (#36) con F6 (#38) → F8
 (#40) → campaña (#62) → demo. **La campaña tiene que empezar antes del 15/10.**
