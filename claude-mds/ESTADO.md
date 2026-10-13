@@ -3,10 +3,9 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 14: instrumento de carga MoST (#120) y
-> primera tanda de la campaña (cuatro de siete perfiles), PR #5 de
-> `fr-commercial-microservice` fusionado. Siguiente paso: F3 → F4
-> con F6 → F8 → los tres perfiles 1:N.
+> **Última actualización:** sesión 15: F3 (#35), CRUD de galerías, PR #6 de
+> `fr-commercial-microservice`. Siguiente paso: F4 con F6 → F8 → los tres
+> perfiles 1:N.
 
 ---
 
@@ -1611,6 +1610,33 @@ congelado en `b6fff3d`; 175 corridas, todas válidas.
 | Pricing (memoria y CLAUDE.md) | Los pesos hipotéticos (detector 1; xs 1, s 3, base 10) no se sostienen a 480 × 640: verificar ≈ 3 detecciones con cualquier modelo. Lo corrige #62 al cerrar la campaña |
 | Configuración de `fr` | `WEB_CONCURRENCY=1`, `TORCH_NUM_THREADS=1`, `INFERENCE_CONCURRENCY=8` para la campaña |
 
+**Sesión 15 — F3 (#35), CRUD de galerías.** PR #6 de
+`fr-commercial-microservice` (`fase2/35`, commit `bda75d7`), **pendiente de
+fusionar**; `closingIssuesReferences` es exactamente `TFM-MIS-MEM/docs#35`.
+Partida: `main` en `3b15df6`, CI `38372847972` en verde, 359 pruebas. Salida:
+440 pruebas, cobertura 99,14 %.
+
+- **Qué hay.** `createGallery`, `listGalleries`, `updateGallery` y
+  `deleteGallery`; `IMPLEMENTED` pasa a las cinco de galerías más las tres de
+  inferencia. Listado por `_id` ascendente (con `{accountId, name}` el plan es
+  `SORT` en memoria sobre las galerías de la cuenta, medido); `total` con
+  `count_documents` en paralelo (`COUNT_SCAN`), consistencia aceptada.
+  `PATCH {}` no escribe; una congelada se edita; `null` es `400`; `""` en
+  `name` se acepta conforme al contrato (propuesta de cambio: #121).
+- **Provisional hasta F10.** Sin `model`, `xs`; no se emiten los `403` de plan.
+  La reconciliación de galerías creadas fuera de plan, anotada en #42.
+- **Cascada sin transacciones**: rostros → identidades → galería. Probada con
+  caída inyectada en los dos últimos pasos (galería visible, el reintento
+  termina); con el orden invertido, las dos en rojo. La carrera con un
+  `addFace` concurrente, anotada en #36.
+- **Medido.** El `DuplicateKeyError` de `find_one_and_update` lleva
+  `keyPattern` pero **no** `index`: el `409` se traduce desde `keyPattern`.
+  `utc_now` se trunca a milisegundos para que el `201` coincida con la lectura.
+- **El comparador sigue sin comparar cuerpos de petición JSON**: el «hasta F3»
+  de la sesión 9 queda sin efecto. `createGallery` y `updateGallery` entran con
+  `without_body`; las cotas del cuerpo las vigilan pruebas en los dos lados.
+- **Queda.** Fusionar #6. Después, F4 con F6.
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -1691,7 +1717,12 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: F3 (#35) → F4 (#36) con F6 (#38) → F8 (#40) → perfiles 1:N
+### Siguiente paso: F4 (#36) con F6 (#38) → F8 (#40) → perfiles 1:N
+
+F3 hecho en la sesión 15. F4 hereda `conflict_code` para el `409` de
+`externalId` y la carrera de la cascada anotada en #36.
+
+#### ~~Siguiente paso: F3 (#35) → F4 (#36) con F6 (#38) → F8 (#40) → perfiles 1:N~~ — F3 hecho en la sesión 15
 
 Con el instrumento hecho y cuatro de los siete perfiles medidos (sesión 14),
 lo que falta de la campaña depende de F8 y de cómo se siembren las galerías.
