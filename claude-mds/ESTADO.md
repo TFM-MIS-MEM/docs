@@ -4,7 +4,7 @@
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
 > **Última actualización:** sesión 15: F3 (#35), CRUD de galerías, PR #6 de
-> `fr-commercial-microservice`. Siguiente paso: F4 con F6 → F8 → los tres
+> `fr-commercial-microservice` fusionado. Siguiente paso: F4 con F6 → F8 → los tres
 > perfiles 1:N.
 
 ---
@@ -1610,9 +1610,11 @@ congelado en `b6fff3d`; 175 corridas, todas válidas.
 | Pricing (memoria y CLAUDE.md) | Los pesos hipotéticos (detector 1; xs 1, s 3, base 10) no se sostienen a 480 × 640: verificar ≈ 3 detecciones con cualquier modelo. Lo corrige #62 al cerrar la campaña |
 | Configuración de `fr` | `WEB_CONCURRENCY=1`, `TORCH_NUM_THREADS=1`, `INFERENCE_CONCURRENCY=8` para la campaña |
 
-**Sesión 15 — F3 (#35), CRUD de galerías.** PR #6 de
-`fr-commercial-microservice` (`fase2/35`, commit `bda75d7`), **pendiente de
-fusionar**; `closingIssuesReferences` es exactamente `TFM-MIS-MEM/docs#35`.
+**Sesión 15 — F3 (#35), CRUD de galerías.** **Fusionado**: PR #6 de
+`fr-commercial-microservice` (`fase2/35`, cabeza `bda75d7`), con commit de
+fusión `d840e6f`; CI de `main` `38539525348` en verde; #35 cerrado. Antes de
+fusionar se comprobó la cabeza, su CI (`38382476899`) en verde y que
+`closingIssuesReferences` era exactamente `TFM-MIS-MEM/docs#35`.
 Partida: `main` en `3b15df6`, CI `38372847972` en verde, 359 pruebas. Salida:
 440 pruebas, cobertura 99,14 %.
 
@@ -1635,7 +1637,7 @@ Partida: `main` en `3b15df6`, CI `38372847972` en verde, 359 pruebas. Salida:
 - **El comparador sigue sin comparar cuerpos de petición JSON**: el «hasta F3»
   de la sesión 9 queda sin efecto. `createGallery` y `updateGallery` entran con
   `without_body`; las cotas del cuerpo las vigilan pruebas en los dos lados.
-- **Queda.** Fusionar #6. Después, F4 con F6.
+- **Queda.** F4 con F6.
 
 ### La fase 1 NO está terminada
 
