@@ -3,9 +3,9 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 15: F3 (#35), CRUD de galerías, PR #6 de
-> `fr-commercial-microservice` fusionado. Siguiente paso: F4 con F6 → F8 → los tres
-> perfiles 1:N.
+> **Última actualización:** sesión 16: F4 (#36) con F6 (#38), identidades y
+> rostros, PR #7 de `fr-commercial-microservice` abierto, pendiente de fusión.
+> Siguiente paso: F8 → los tres perfiles 1:N.
 
 ---
 
@@ -1639,6 +1639,33 @@ Partida: `main` en `3b15df6`, CI `38372847972` en verde, 359 pruebas. Salida:
   `without_body`; las cotas del cuerpo las vigilan pruebas en los dos lados.
 - **Queda.** F4 con F6.
 
+**Sesión 16 — F4 (#36) con F6 (#38), identidades y rostros.** **PR #7 abierto**
+en `fr-commercial-microservice` (`fase2/36`, cabeza `75f9b6c`), con «Closes» de
+#36 y #38; `closingIssuesReferences` comprobado: exactamente esos dos.
+Partida: `main` en `d840e6f`, CI `38539525348` en verde, 440 pruebas. Salida:
+566 pruebas, cobertura 99,09 %. Las pruebas, en un commit propio y en rojo
+antes del código (`e414868`): 130 rojas, 115 nuevas.
+
+- **Qué hay.** Las siete operaciones; el rostro, como código LSSC de 192 B del
+  modelo de la galería (igual byte a byte a `extractEmbedding`, probado en los
+  tres modelos). `403 GALLERY_FROZEN_MODEL_NOT_IN_PLAN` en las altas; las bajas
+  y `updateIdentity`, permitidas sobre una congelada.
+- **Contadores sin transacciones**: ninguna alta deja un contador por encima;
+  ninguna baja deja `faceCount` de la identidad por encima. Los de la galería
+  en las bajas, a la reconciliación. `deleteIdentity` probada con caída
+  inyectada en dos puntos.
+- **Carreras cerradas con una marca de borrado** (`deletingAt`) en
+  `deleteGallery` ---cambia F3--- y `deleteIdentity`, filtrada por el `$inc` de
+  las altas, que compensan. El `409 LAST_FACE_OF_IDENTITY`, de un decremento
+  condicional. Entrelazados forzados con dos tareas en el bucle del
+  `TestClient`; siete mutantes, cada uno en rojo en su prueba.
+- **Medido.** Un control de entrelazado tiene que pausar ENTRE la lectura y
+  la escritura del mutante: pausado tras el decremento, el de dos `deleteFace`
+  pasaba en verde con lectura previa. FastAPI 0.141.1 entrega `""` multipart al
+  modelo, y `externalId=""` es `400`.
+- **Registrado.** #123 (`alcance:futuro`): `listIdentities` ordena en memoria.
+- **Queda.** CI del PR, fusión; después F8.
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -1719,7 +1746,12 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: F4 (#36) con F6 (#38) → F8 (#40) → perfiles 1:N
+### Siguiente paso: F8 (#40) → perfiles 1:N
+
+F4 con F6 hecho en la sesión 16 (PR #7). F8 compara contra los códigos
+guardados con `lssc.hamming`, sobre `{galleryId}` en `faces`.
+
+#### ~~Siguiente paso: F4 (#36) con F6 (#38) → F8 (#40) → perfiles 1:N~~ — F4 con F6 hecho en la sesión 16
 
 F3 hecho en la sesión 15. F4 hereda `conflict_code` para el `409` de
 `externalId` y la carrera de la cascada anotada en #36.
