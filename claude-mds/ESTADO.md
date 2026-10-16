@@ -4,8 +4,8 @@
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
 > **Última actualización:** sesión 16: F4 (#36) con F6 (#38), identidades y
-> rostros, PR #7 de `fr-commercial-microservice` abierto, pendiente de fusión.
-> Siguiente paso: F8 → los tres perfiles 1:N.
+> rostros, PR #7 de `fr-commercial-microservice` fusionado. Siguiente paso: F8 →
+> los tres perfiles 1:N.
 
 ---
 
@@ -1639,9 +1639,12 @@ Partida: `main` en `3b15df6`, CI `38372847972` en verde, 359 pruebas. Salida:
   `without_body`; las cotas del cuerpo las vigilan pruebas en los dos lados.
 - **Queda.** F4 con F6.
 
-**Sesión 16 — F4 (#36) con F6 (#38), identidades y rostros.** **PR #7 abierto**
-en `fr-commercial-microservice` (`fase2/36`, cabeza `75f9b6c`), con «Closes» de
-#36 y #38; `closingIssuesReferences` comprobado: exactamente esos dos.
+**Sesión 16 — F4 (#36) con F6 (#38), identidades y rostros.** **Fusionado**: PR
+#7 de `fr-commercial-microservice` (`fase2/36`, cabeza `75f9b6c`), con commit de
+fusión `c39513c`; CI de `main` `38870255327` en verde; #36 y #38 cerrados
+(COMPLETED). Antes de fusionar se comprobó la cabeza, su CI (`38785245393`) en
+verde y que `closingIssuesReferences` era exactamente `TFM-MIS-MEM/docs#36` y
+`TFM-MIS-MEM/docs#38`.
 Partida: `main` en `d840e6f`, CI `38539525348` en verde, 440 pruebas. Salida:
 566 pruebas, cobertura 99,09 %. Las pruebas, en un commit propio y en rojo
 antes del código (`e414868`): 130 rojas, 115 nuevas.
@@ -1663,8 +1666,13 @@ antes del código (`e414868`): 130 rojas, 115 nuevas.
   la escritura del mutante: pausado tras el decremento, el de dos `deleteFace`
   pasaba en verde con lectura previa. FastAPI 0.141.1 entrega `""` multipart al
   modelo, y `externalId=""` es `400`.
+- **Sin cubrir, a propósito.** Tres líneas de `delete_face`
+  (`src/controllers/identities.py`), ramas de carrera: la identidad desaparece
+  entre la lectura del rostro y el decremento, y el rostro lo borra otra
+  petición entre el decremento y el borrado (se devuelve el decremento). No
+  se prueban.
 - **Registrado.** #123 (`alcance:futuro`): `listIdentities` ordena en memoria.
-- **Queda.** CI del PR, fusión; después F8.
+- **Queda.** F8.
 
 ### La fase 1 NO está terminada
 
@@ -1748,7 +1756,7 @@ Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
 ### Siguiente paso: F8 (#40) → perfiles 1:N
 
-F4 con F6 hecho en la sesión 16 (PR #7). F8 compara contra los códigos
+F4 con F6 hecho en la sesión 16 (PR #7, fusión `c39513c`). F8 compara contra los códigos
 guardados con `lssc.hamming`, sobre `{galleryId}` en `faces`.
 
 #### ~~Siguiente paso: F4 (#36) con F6 (#38) → F8 (#40) → perfiles 1:N~~ — F4 con F6 hecho en la sesión 16
