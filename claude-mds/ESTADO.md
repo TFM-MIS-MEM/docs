@@ -3,9 +3,9 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 16: F4 (#36) con F6 (#38), identidades y
-> rostros, PR #7 de `fr-commercial-microservice` fusionado. Siguiente paso: F8 →
-> los tres perfiles 1:N.
+> **Última actualización:** sesión 17: F8 (#40), verificación contra identidad
+> y búsqueda 1:N, PR #8 de `fr-commercial-microservice` abierto. Siguiente paso:
+> fusión, y los tres perfiles 1:N (xs; 5.000, 20.000 y 50.000 rostros).
 
 ---
 
@@ -1674,6 +1674,90 @@ antes del código (`e414868`): 130 rojas, 115 nuevas.
 - **Registrado.** #123 (`alcance:futuro`): `listIdentities` ordena en memoria.
 - **Queda.** F8.
 
+**Sesión 17 — F8 (#40), verificación contra identidad y búsqueda 1:N.** **PR #8
+de `fr-commercial-microservice` abierto** (`fase2/40`, cabeza `2fbd617`), CI
+`38974667898` en verde, `closingIssuesReferences` exactamente
+`TFM-MIS-MEM/docs#40`; pendiente de fusión.
+Partida: `main` en `c39513c`, CI `38870255327` en verde, 566 pruebas. Salida:
+648 pruebas, cobertura 99,18 %. Las pruebas, en un commit propio y en rojo
+antes del código (`6c6f129`): 69 rojas y el error de colección de `test_shape`.
+
+- **Qué hay.** `verifyAgainstIdentity` y `searchGallery`. La imagen, por el
+  camino de F4 (`lssc_code`, modelo de la galería); Hamming vectorizado
+  (`lssc.hamming_many`, `np.bitwise_count` sobre palabras de 64 bits); la
+  decisión con `lssc.confidence(int(d))`, la expresión de `default_threshold`:
+  `d = d_max` coincide, probado en la frontera en los tres modelos con códigos
+  sembrados a distancia exacta del de la imagen.
+- **Decidido.** verify cuenta la menor distancia sobre los rostros de la
+  identidad; una identidad sin rostros es `404` (residuo de un `createIdentity`
+  fallido: su cliente recibió un error). search: `confidence` solo con
+  coincidencia (sin identidad no hay de quién sea); empate por **menor
+  identificador** de rostro, no «el enrolado antes» (un `ObjectId` solo sigue el
+  orden de alta dentro de un proceso); el mejor rostro de una identidad marcada
+  o borrada es «sin coincidencia», sin pasar al siguiente: conservador, nunca
+  devuelve una identidad que no sea la del mejor rostro, a cambio de un posible
+  falso negativo en la ventana del borrado. `livenessToken`, `400
+  LIVENESS_NOT_SUPPORTED` hasta F12. `shape.py` traduce `anyOf: [X, NullValue]`
+  (`NullValue` por su forma), con controles en pareja.
+- **Dónde se compara.** En el hilo de trabajo, bajo el semáforo de la
+  inferencia, nunca en el bucle. search infiere, recupera y compara: con el
+  servicio saturado hace cola dos veces, y eso sale en el p95. verify lee sus
+  rostros antes de inferir y compara en el mismo trabajo.
+- **Provisional.** `threshold` aceptado siempre hasta F10; vectores hasta F7;
+  token de enrolamiento hasta F11.
+- **Medido**, una vez, contra el `fr` de desarrollo: 20 búsquedas secuenciales
+  por tamaño, códigos aleatorios de 192 B, plan `IXSCAN {galleryId: 1}` en
+  todos (claves = documentos = rostros). Ninguna búsqueda coincide, así que la
+  lectura de la identidad ganadora no entra; lo decide el perfil de búsqueda.
+  Recuperación: del `find` a tener los códigos. Comparación: dentro del hilo.
+  Tiempos en ms; los informes completos, en el cuerpo del PR #8.
+
+  | Tanda | Rostros | MongoDB | Recuperación, mediana / p95 | Comparación, mediana / p95 | RSS antes → pico (MB) |
+  |---|---|---|---|---|---|
+  | 1, `dict` (`9e885b4`) | 5.000 | 3 | 5,43 / 47,06 | 0,27 / 0,32 | 709 → 711 |
+  | 1, `dict` | 50.000 | 22 | 101,14 / 169,85 | 2,88 / 3,32 | 679 → 724 |
+  | 2, `RawBSONDocument` (`2fbd617`) | 5.000 | 2 | 6,02 / 8,13 | 0,27 / 0,31 | 718 → 735 |
+  | 2, `RawBSONDocument` | 20.000 | 9 | 22,88 / 65,07 | 0,99 / 1,18 | 684 → 694 |
+  | 2, `RawBSONDocument` | 50.000 | 26 | 55,68 / 127,44 | 2,54 / 2,93 | 688 → 724 |
+
+  Recuperación y comparación, lineales en el número de rostros; la
+  comparación, de 2,5 a 2,9 ms a 50.000, no es el cuello de botella.
+- **El criterio del BSON, y por qué se conserva el cambio sin cumplirlo.** Se
+  fijó probar la alternativa si la recuperación pasaba de 10 ms a 50.000, y
+  conservarla si la reducía a la mitad. Bajó de 101 a 55,7 ms; la mitad era
+  50,5. Se conserva igualmente: el criterio estaba mal planteado, porque medía
+  la recuperación entera, que incluye la ejecución en MongoDB (22 y 26 ms), que
+  el código no puede cambiar y que no corre en el proceso del servicio. Lo que
+  limita la capacidad es la parte en Python, en serie en el bucle con un
+  worker, y pasa de ~79 a ~30 ms por búsqueda. Con eso, a 50.000, el bucle ya no
+  queda por debajo de la inferencia: ~33 búsquedas/s frente a ~26/s estimadas
+  con los MST de la sesión 14. Moverla a un hilo no habría contado: no suelta
+  el GIL.
+- **Perfiles 1:N de la campaña, decidido (sustituye a la sesión 14).** Tres,
+  todos con `xs`, con galerías de 5.000, 20.000 y 50.000 rostros, en lugar de
+  uno por modelo con tamaño fijo. Un solo modelo, porque la sesión 14 midió que
+  a 480 × 640 los tres cuestan lo mismo dentro del error del método, y la
+  comparación es idéntica en los tres (códigos de 192 B). Varios tamaños,
+  porque es lo único que permite estimar `f(tamaño_galería)`, y la medida de
+  F8 muestra recuperación y comparación lineales en el número de rostros. Los
+  tamaños abarcan un orden de magnitud con un punto intermedio; no se
+  justifican por el pricing, que es provisional y sale de la campaña. La
+  variación del modelo en 1:N pasa a trabajo futuro.
+- **Registrado.** #124 (`alcance:futuro`): el `400` de `createIdentity` y
+  `addFace` no nombra sus códigos. #125 (`alcance:futuro`, va a la memoria): en
+  1:N, con el umbral de FAR 1e-4 por par, un desconocido coincide con alguien
+  con probabilidad ≈ 1 − (1 − 1e-4)^N: ~39 % a 5.000 y ~99 % a 50.000. Una
+  línea en #43: `searchGallery` sigue sin token cuando F11 lo admita.
+- **Queda.** La fusión del PR #8, y los tres perfiles 1:N: la siembra y el
+  perfil de búsqueda en `load/`, en la sesión siguiente.
+
+| Dónde | Cambio |
+|---|---|
+| Contrato de `fr` | verify y search: el comparador y el `400` en línea con sus códigos; `LIVENESS_NOT_SUPPORTED`; `confidence` de search en [0, 1] y solo con coincidencia; desempate por menor identificador; identidad sin rostros, `404` |
+| Memoria, capítulo 7 | Perfiles 1:N: `xs` con 5.000, 20.000 y 50.000 rostros; la variación del modelo en 1:N, trabajo futuro |
+| Memoria, capítulo 7 | Recuperación frente a comparación a 50.000: la recuperación domina; el BSON en Python, de ~79 a ~30 ms con `RawBSONDocument` |
+| Memoria | Falsa aceptación en 1:N y en verify con k rostros (#125) |
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -1754,7 +1838,15 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: F8 (#40) → perfiles 1:N
+### Siguiente paso: fusión del PR #8 → perfiles 1:N
+
+F8 hecho en la sesión 17 (PR #8, pendiente de fusión). Los perfiles 1:N son tres,
+todos con `xs`, con galerías de 5.000, 20.000 y 50.000 rostros (decisión de la
+sesión 17, que sustituye a la de la sesión 14). La siembra y el perfil de
+búsqueda van en `load/`; si cambian `criteria.py`, `most.py` o
+`k6/profile.js`, se repite la calibración.
+
+#### ~~Siguiente paso: F8 (#40) → perfiles 1:N~~ — F8 hecho en la sesión 17
 
 F4 con F6 hecho en la sesión 16 (PR #7, fusión `c39513c`). F8 compara contra los códigos
 guardados con `lssc.hamming`, sobre `{galleryId}` en `faces`.
@@ -2111,6 +2203,14 @@ especificaciones. Estas son las que no encajaban en ninguno de los dos:
   verificaciones); **los tres de 1:N, pendientes de F8**, con tamaño de galería
   fijo. La variación del tamaño de imagen y de galería queda como trabajo futuro
   declarado.
+
+  **Sustituido en la sesión 17 para los perfiles 1:N:** tres, todos con `xs`,
+  con galerías de 5.000, 20.000 y 50.000 rostros. Un solo modelo, porque a
+  480 × 640 los tres cuestan lo mismo dentro del error del método y la
+  comparación es idéntica; varios tamaños, porque es lo único que permite
+  estimar `f(tamaño_galería)`. La variación del modelo en 1:N pasa a trabajo
+  futuro; la del tamaño de galería deja de serlo. El razonamiento, en la
+  entrada de la sesión 17.
 - **Ubicación de la lógica del límite en unidades.** Los límites expresados en
   unidades de capacidad no pueden aplicarse con los mecanismos declarativos de
   Kong, que operan sobre recuentos de peticiones. Pasarela mediante extensión,
