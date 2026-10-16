@@ -327,6 +327,17 @@ no solo por el código 11000.
 insertar el rostro: así el contador nunca dice más de lo que hay, y una
 identidad huérfana tras una caída es la que tiene `faceCount` 0.
 
+**Contadores y borrados sin transacciones (#36).** Ninguna alta deja un
+contador por encima de lo que hay, y ninguna baja deja por encima el
+`faceCount` de la identidad: `deleteFace` lo decrementa ANTES de borrar,
+condicionado a `faceCount > 1` (de ahí sale el `409 LAST_FACE_OF_IDENTITY`,
+no de una lectura previa). Los contadores de la galería pueden quedar cortos
+en las altas y largos en las bajas; los corrige la reconciliación.
+`deleteGallery` y `deleteIdentity` empiezan escribiendo una marca interna
+(`deletingAt`); las altas filtran la marca al leer la cadena y al hacer el
+`$inc`, y si el `$inc` no encuentra el documento deshacen lo insertado y
+responden `404`. La marca nunca sale en una respuesta.
+
 **Sin límite de rostros por identidad.** El límite económico ya existe: cada
 rostro computa sobre la cuota.
 
