@@ -4,8 +4,8 @@
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
 > **Última actualización:** sesión 17: F8 (#40), verificación contra identidad
-> y búsqueda 1:N, PR #8 de `fr-commercial-microservice` abierto. Siguiente paso:
-> fusión, y los tres perfiles 1:N (xs; 5.000, 20.000 y 50.000 rostros).
+> y búsqueda 1:N, PR #8 de `fr-commercial-microservice` fusionado. Siguiente
+> paso: los tres perfiles 1:N (xs; 5.000, 20.000 y 50.000 rostros).
 
 ---
 
@@ -1674,10 +1674,12 @@ antes del código (`e414868`): 130 rojas, 115 nuevas.
 - **Registrado.** #123 (`alcance:futuro`): `listIdentities` ordena en memoria.
 - **Queda.** F8.
 
-**Sesión 17 — F8 (#40), verificación contra identidad y búsqueda 1:N.** **PR #8
-de `fr-commercial-microservice` abierto** (`fase2/40`, cabeza `2fbd617`), CI
-`38974667898` en verde, `closingIssuesReferences` exactamente
-`TFM-MIS-MEM/docs#40`; pendiente de fusión.
+**Sesión 17 — F8 (#40), verificación contra identidad y búsqueda 1:N.**
+**Fusionado**: PR #8 de `fr-commercial-microservice` (`fase2/40`, cabeza
+`2fbd617`), con commit de fusión `ec05a34`; CI de `main` `39119439845` en
+verde; #40 cerrado (COMPLETED). Antes de fusionar se comprobó la cabeza, su CI
+(`38974667898`) en verde y que `closingIssuesReferences` era exactamente
+`TFM-MIS-MEM/docs#40`.
 Partida: `main` en `c39513c`, CI `38870255327` en verde, 566 pruebas. Salida:
 648 pruebas, cobertura 99,18 %. Las pruebas, en un commit propio y en rojo
 antes del código (`6c6f129`): 69 rojas y el error de colección de `test_shape`.
@@ -1765,8 +1767,8 @@ antes del código (`6c6f129`): 69 rojas y el error de colección de `test_shape`
   1:N, con el umbral de FAR 1e-4 por par, un desconocido coincide con alguien
   con probabilidad ≈ 1 − (1 − 1e-4)^N: ~39 % a 5.000 y ~99 % a 50.000. Una
   línea en #43: `searchGallery` sigue sin token cuando F11 lo admita.
-- **Queda.** La fusión del PR #8, y los tres perfiles 1:N: la siembra y el
-  perfil de búsqueda en `load/`, en la sesión siguiente.
+- **Queda.** Los tres perfiles 1:N: la siembra y el perfil de búsqueda en
+  `load/`, en la sesión siguiente.
 
 | Dónde | Cambio |
 |---|---|
@@ -1857,9 +1859,9 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: fusión del PR #8 → perfiles 1:N
+### Siguiente paso: perfiles 1:N
 
-F8 hecho en la sesión 17 (PR #8, pendiente de fusión). Los perfiles 1:N son tres,
+F8 hecho en la sesión 17 (PR #8, fusión `ec05a34`). Los perfiles 1:N son tres,
 todos con `xs`, con galerías de 5.000, 20.000 y 50.000 rostros (decisión de la
 sesión 17, que sustituye a la de la sesión 14). La siembra y el perfil de
 búsqueda van en `load/`: en cada galería, una identidad enrolada por la API con
