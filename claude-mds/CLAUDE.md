@@ -652,10 +652,17 @@ luego `prio:3-si-da-tiempo`. Lo etiquetado `alcance:futuro` no se toca.
   fijada para toda la campaña: `WEB_CONCURRENCY=1`, `TORCH_NUM_THREADS=1`,
   `INFERENCE_CONCURRENCY=8`. El instrumento está congelado en `b6fff3d`: si
   cambian `criteria.py`, `most.py` o `k6/profile.js`, se repite la calibración.
-  Única excepción (sesión 17): añadir `searchGallery` a `k6/profile.js`, porque
-  hasta 50.000 rostros la búsqueda sigue limitada por la inferencia, para la que
-  se calibró, y la fórmula de unidades solo compara operaciones medidas sobre el
-  mismo despliegue.
+  Única excepción (sesiones 17 y 18): los perfiles 1:N. En `k6/profile.js`,
+  la operación `searchGallery`; en `most.py`, solo cambios aditivos (la
+  operación, el tamaño de galería, la siembra con su comprobación, la orden
+  `search` y claves nuevas en el estado del servicio: CPU de `fr`, y CPU y
+  lecturas de MongoDB), sin tocar la corrida, la búsqueda, la confirmación ni
+  la validez; en `compose.yml`, el servicio `seed` y `GALLERY` en `k6`; y
+  `seed.py`, nuevo. `criteria.py` no cambia. Motivo: hasta 50.000 rostros la
+  búsqueda sigue limitada por la inferencia, para la que se calibró, y la
+  fórmula de unidades solo compara operaciones medidas sobre el mismo
+  despliegue. Desde la sesión 18, MongoDB entra en lo medido y comparte los
+  vCPU 0–1 con k6.
 - **Antes de medir, el agente para y avisa**, y Miguel prepara el Mac: solo
   Docker, VS Code y el chat abiertos; enchufado y sin bajo consumo;
   `caffeinate -i`; `docker ps` vacío, con la pila de desarrollo y el `fr` de
