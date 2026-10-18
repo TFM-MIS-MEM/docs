@@ -3,9 +3,9 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 17: F8 (#40), verificación contra identidad
-> y búsqueda 1:N, PR #8 de `fr-commercial-microservice` fusionado. Siguiente
-> paso: los tres perfiles 1:N (xs; 5.000, 20.000 y 50.000 rostros).
+> **Última actualización:** sesión 18: perfiles 1:N en `load/` (#62), PR #9 de
+> `fr-commercial-microservice` fusionado. Siguiente paso: lanzar los tres
+> perfiles 1:N; versionarlos y analizarlos en la sesión siguiente.
 
 ---
 
@@ -1779,6 +1779,49 @@ antes del código (`6c6f129`): 69 rojas y el error de colección de `test_shape`
 | Memoria, capítulo 7 | Recuperación frente a comparación a 50.000: la recuperación domina; el BSON en Python, de ~79 a ~30 ms con `RawBSONDocument` |
 | Memoria | Falsa aceptación en 1:N y en verify con k rostros (#125) |
 
+**Sesión 18 — perfiles 1:N en `load/` (#62).** **Fusionado**: PR #9 de
+`fr-commercial-microservice` (`fase4/62-busqueda`, cabeza `82cfb01`), con
+commit de fusión `5f48e92`; CI de la cabeza `39124546675` y de `main`
+`39126761309` en verde; `closingIssuesReferences` vacío (#62 referenciado, no
+se cierra hasta el análisis). Partida: `main` en `ec05a34`, CI `39119439845` en
+verde.
+
+- **Qué hay.** `searchGallery` en `k6/profile.js` (la excepción de la
+  congelación); `seed.py`, que siembra en el contenedor `seed` (imagen de `fr`,
+  red `internal`, vCPU 0–1) una galería `xs` con una identidad enrolada por la
+  API (`koch_2023`) y el resto directo en MongoDB, un rostro por identidad,
+  con las clases de persistencia del servicio; una comprobación que bloquea al
+  empezar el perfil y se repite al acabar; si falla al acabar, el perfil queda
+  como no válido en `search-status.json`. En `most.py`, solo aditivo: comparado
+  por AST contra `b6fff3d`, cambian `Service.state`, `execute`, `profile_name`
+  y `main`; la corrida, la búsqueda, la confirmación y la validez, no.
+  `criteria.py`, sin diferencias. Nuevo en el estado de cada corrida: CPU de
+  `fr` y de mongo (`cpu.stat`) y `opLatencies.reads` de mongo. `most.py search`
+  lanza los tres perfiles en secuencia; el estado, en
+  `results/search-status.json`.
+- **Decidido.** Un rostro por identidad; sin horquilla, desde 1/s como
+  verifyPair xs; una comprobación por perfil y no por corrida (la galería vive
+  en mongo, y recrear `fr` no recrea mongo: medido); si mongo cae en mitad de
+  una corrida cuenta como «no pasa», no como inválida (validez congelada), y
+  queda a la vista en el meta. Criterio de «lo limita MongoDB» en
+  `load/README.md`; la interpretación numérica, en `analyze.py`.
+- **Prueba en seco** (no es medida de la campaña): 500 rostros a 1/s y a 8/s,
+  válidas y pasan; búsqueda con confianza 0,712 (umbral 0,688); siembra de
+  50.000 en 0,98 s en MongoDB, 3,4 s con la comprobación. La CPU de mongo tiene
+  un fondo de ~0,1 vCPU que no depende de la tasa (hipótesis: el healthcheck con
+  `mongosh` cada 2 s); cada búsqueda suma ~4 operaciones en `reads`.
+- **Lanzado** desde `5f48e92` (`main` tras la fusión), la noche del 18/10. La
+  hora exacta de arranque, en la sesión siguiente, desde
+  `results/search-status.json`.
+- **Queda.** Lanzar los tres perfiles (~6–7 h; peor caso ~8,5 h); versionar los
+  resultados y analizarlos (`analyze.py`, incluido el fondo de CPU de mongo) en
+  la sesión siguiente, en otro PR.
+
+| Dónde | Cambio |
+|---|---|
+| CLAUDE.md | Excepción de la congelación ampliada a los cambios aditivos de los perfiles 1:N; MongoDB entra en lo medido |
+| Memoria, capítulo 7 | Siembra de las galerías 1:N y su comprobación; MongoDB en los vCPU 0–1 con k6, y su registro por corrida |
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -1859,7 +1902,23 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: perfiles 1:N
+### Siguiente paso: análisis de los perfiles 1:N → demo
+
+Los tres perfiles 1:N se lanzaron en la sesión 18 desde `5f48e92`. Lo que
+queda de la campaña:
+
+- Versionar `results/campaign/searchGallery-xs-{5000,20000,50000}` y
+  `results/search-status.json`.
+- `analyze.py` con los tres perfiles: MIT, MST, ráfaga, `f(n)`, la CPU de `fr`
+  y de mongo restando el fondo de la corrida a 1/s, y el criterio de «lo
+  limita MongoDB» de `load/README.md`.
+- Otro PR, con `Refs TFM-MIS-MEM/docs#62`; #62 se cierra con el análisis.
+- Después, la demo (#115).
+
+Lo que dice la entrada de abajo de que cualquier cambio de `most.py` obliga a
+recalibrar ya no es exacto: rige la excepción de `CLAUDE.md`, «Modo entrega».
+
+#### ~~Siguiente paso: perfiles 1:N~~ — lanzados en la sesión 18
 
 F8 hecho en la sesión 17 (PR #8, fusión `ec05a34`). Los perfiles 1:N son tres,
 todos con `xs`, con galerías de 5.000, 20.000 y 50.000 rostros (decisión de la
