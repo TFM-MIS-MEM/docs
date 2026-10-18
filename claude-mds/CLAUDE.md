@@ -650,8 +650,12 @@ luego `prio:3-si-da-tiempo`. Lo etiquetado `alcance:futuro` no se toca.
   queda.
 - **Mediciones de carga (`fr-commercial-microservice/load/`).** Configuración
   fijada para toda la campaña: `WEB_CONCURRENCY=1`, `TORCH_NUM_THREADS=1`,
-  `INFERENCE_CONCURRENCY=8`. El instrumento está congelado en `b6fff3d`: si
-  cambian `criteria.py`, `most.py` o `k6/profile.js`, se repite la calibración.
+  `INFERENCE_CONCURRENCY=8`. El instrumento está congelado en `b6fff3d`: si 
+  cambian `criteria.py`, `most.py` o `k6/profile.js`, se repite la calibración. 
+  Única excepción (sesión 17): añadir `searchGallery` a `k6/profile.js`, porque 
+  hasta 50.000 rostros la búsqueda sigue limitada por la inferencia, para la que 
+  se calibró, y la fórmula de unidades solo compara operaciones medidas sobre el 
+  mismo despliegue.
 - **Antes de medir, el agente para y avisa**, y Miguel prepara el Mac: solo
   Docker, VS Code y el chat abiertos; enchufado y sin bajo consumo;
   `caffeinate -i`; `docker ps` vacío, con la pila de desarrollo y el `fr` de
