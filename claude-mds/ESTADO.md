@@ -1708,7 +1708,8 @@ antes del código (`6c6f129`): 69 rojas y el error de colección de `test_shape`
 - **Medido**, una vez, contra el `fr` de desarrollo: 20 búsquedas secuenciales
   por tamaño, códigos aleatorios de 192 B, plan `IXSCAN {galleryId: 1}` en
   todos (claves = documentos = rostros). Ninguna búsqueda coincide, así que la
-  lectura de la identidad ganadora no entra; lo decide el perfil de búsqueda.
+  lectura de la identidad ganadora no entra; en la campaña sí (decisión 3, más
+  abajo).
   Recuperación: del `find` a tener los códigos. Comparación: dentro del hilo.
   Tiempos en ms; los informes completos, en el cuerpo del PR #8.
 
@@ -1733,16 +1734,32 @@ antes del código (`6c6f129`): 69 rojas y el error de colección de `test_shape`
   queda por debajo de la inferencia: ~33 búsquedas/s frente a ~26/s estimadas
   con los MST de la sesión 14. Moverla a un hilo no habría contado: no suelta
   el GIL.
-- **Perfiles 1:N de la campaña, decidido (sustituye a la sesión 14).** Tres,
-  todos con `xs`, con galerías de 5.000, 20.000 y 50.000 rostros, en lugar de
-  uno por modelo con tamaño fijo. Un solo modelo, porque la sesión 14 midió que
-  a 480 × 640 los tres cuestan lo mismo dentro del error del método, y la
-  comparación es idéntica en los tres (códigos de 192 B). Varios tamaños,
-  porque es lo único que permite estimar `f(tamaño_galería)`, y la medida de
-  F8 muestra recuperación y comparación lineales en el número de rostros. Los
-  tamaños abarcan un orden de magnitud con un punto intermedio; no se
-  justifican por el pricing, que es provisional y sale de la campaña. La
-  variación del modelo en 1:N pasa a trabajo futuro.
+- **Campaña, tres decisiones.**
+
+  1. **Perfiles 1:N (sustituye a la sesión 14).** Tres,
+     todos con `xs`, con galerías de 5.000, 20.000 y 50.000 rostros, en lugar
+     de uno por modelo con tamaño fijo. Un solo modelo, porque la sesión 14
+     midió que a 480 × 640 los tres cuestan lo mismo dentro del error del
+     método, y la comparación es idéntica en los tres (códigos de 192 B).
+     Varios tamaños, porque es lo único que permite estimar
+     `f(tamaño_galería)`, y la medida de F8 muestra recuperación y comparación
+     lineales en el número de rostros. Los tamaños abarcan un orden de magnitud
+     con un punto intermedio; no se justifican por el pricing, que es
+     provisional y sale de la campaña. La variación del modelo en 1:N pasa a
+     trabajo futuro.
+  2. **Añadir `searchGallery` a `k6/profile.js` no obliga a repetir la
+     calibración: se mantiene `w1t1c8`.** La parte de la búsqueda que va en
+     serie por el GIL (~30 ms a 50.000, ~33/s) queda por encima de la capacidad
+     de inferencia (~26/s), así que el límite sigue siendo la inferencia, para
+     la que se calibró. Además, la fórmula de unidades compara operaciones y
+     solo vale sobre el mismo despliegue. Con galerías bastante mayores que
+     50.000, el límite pasaría al trabajo en Python por proceso y convendría
+     más de un worker: trabajo futuro.
+  3. **Las búsquedas de la campaña coinciden.** En cada galería, una identidad
+     enrolada por la API con la imagen de k6; el resto de rostros, sembrado
+     directamente con códigos aleatorios. Así se mide la operación completa,
+     con la lectura de la identidad ganadora: un extra constante que no altera
+     `f(n)`.
 - **Registrado.** #124 (`alcance:futuro`): el `400` de `createIdentity` y
   `addFace` no nombra sus códigos. #125 (`alcance:futuro`, va a la memoria): en
   1:N, con el umbral de FAR 1e-4 por par, un desconocido coincide con alguien
@@ -1755,6 +1772,8 @@ antes del código (`6c6f129`): 69 rojas y el error de colección de `test_shape`
 |---|---|
 | Contrato de `fr` | verify y search: el comparador y el `400` en línea con sus códigos; `LIVENESS_NOT_SUPPORTED`; `confidence` de search en [0, 1] y solo con coincidencia; desempate por menor identificador; identidad sin rostros, `404` |
 | Memoria, capítulo 7 | Perfiles 1:N: `xs` con 5.000, 20.000 y 50.000 rostros; la variación del modelo en 1:N, trabajo futuro |
+| Memoria, capítulo 7 | `searchGallery` en el perfil sin recalibrar (`w1t1c8`): el límite sigue siendo la inferencia; más de un worker para galerías mucho mayores, trabajo futuro |
+| Memoria, capítulo 7 | Búsquedas que coinciden: una identidad enrolada por la API con la imagen de k6, el resto sembrado con códigos aleatorios |
 | Memoria, capítulo 7 | Recuperación frente a comparación a 50.000: la recuperación domina; el BSON en Python, de ~79 a ~30 ms con `RawBSONDocument` |
 | Memoria | Falsa aceptación en 1:N y en verify con k rostros (#125) |
 
@@ -1843,8 +1862,11 @@ Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 F8 hecho en la sesión 17 (PR #8, pendiente de fusión). Los perfiles 1:N son tres,
 todos con `xs`, con galerías de 5.000, 20.000 y 50.000 rostros (decisión de la
 sesión 17, que sustituye a la de la sesión 14). La siembra y el perfil de
-búsqueda van en `load/`; si cambian `criteria.py`, `most.py` o
-`k6/profile.js`, se repite la calibración.
+búsqueda van en `load/`: en cada galería, una identidad enrolada por la API con
+la imagen de k6 y el resto sembrado con códigos aleatorios, para que las
+búsquedas coincidan. Añadir `searchGallery` a `k6/profile.js` **no** obliga a
+repetir la calibración (`w1t1c8` se mantiene, decisión 2 de la sesión 17);
+cualquier otro cambio de `criteria.py`, `most.py` o `k6/profile.js`, sí.
 
 #### ~~Siguiente paso: F8 (#40) → perfiles 1:N~~ — F8 hecho en la sesión 17
 
