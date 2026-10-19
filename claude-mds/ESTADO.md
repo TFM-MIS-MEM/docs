@@ -3,9 +3,10 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 18: perfiles 1:N en `load/` (#62), PR #9 de
-> `fr-commercial-microservice` fusionado. Siguiente paso: lanzar los tres
-> perfiles 1:N; versionarlos y analizarlos en la sesión siguiente.
+> **Última actualización:** sesión 19: campaña 1:N medida y analizada (#62), PR
+> #10 de `fr-commercial-microservice` fusionado. Siguiente paso: decidir los
+> pesos del pricing (Miguel), corregir el motivo de la excepción en
+> `CLAUDE.md`, y la demo (#115).
 
 ---
 
@@ -1822,6 +1823,54 @@ verde.
 | CLAUDE.md | Excepción de la congelación ampliada a los cambios aditivos de los perfiles 1:N; MongoDB entra en lo medido |
 | Memoria, capítulo 7 | Siembra de las galerías 1:N y su comprobación; MongoDB en los vCPU 0–1 con k6, y su registro por corrida |
 
+**Sesión 19 — análisis de los perfiles 1:N (#62).** Sigue en el chat de la 18.
+**Fusionado**: PR #10 de `fr-commercial-microservice` (`fase4/62-analisis`,
+cabeza `fc9dbb9`), con commit de fusión `157101d`; CI de la cabeza
+`39227737199` y de `main` `39228424480` en verde; `closingIssuesReferences`
+vacío. Partida: `main` en `5f48e92`.
+
+- **La campaña 1:N, terminada y válida.** Del 18/10 a las 20:46 al 19/10 a las
+  04:43 (UTC), 7 h 57 min; los tres perfiles válidos, con la comprobación de la
+  galería bien al empezar y al acabar. Datos en un commit propio (`ff56a4a`).
+
+  | Rostros | MIT (/s) | MST (/s) | 1000/MST (ms) | Latencia a 1–2/s (ms) |
+  |---|---|---|---|---|
+  | 5.000 | 30,40 | 20,80 | 48,08 | 77,0 |
+  | 20.000 | 20,00 | 16,15 | 61,92 | 94,5 |
+  | 50.000 | 12,50 | 9,59 | 104,28 | 132,5 |
+
+  f(n): 1,27 µs por rostro en capacidad y 1,24 en latencia (ajuste lineal, 3
+  puntos). σ_S respecto a detección: 1,87, 2,41 y 4,07.
+- **Qué limita: una parte en serie dentro del proceso de `fr`, no MongoDB.** De
+  5.000 a 50.000, 1000/MST sube 56,2 ms, lo mismo que la latencia aislada a 1 y
+  2/s: la parte de f(n) no se reparte entre las 8 inferencias. La CPU de `fr` en
+  las corridas que fallan baja con n (2,89 → 2,36 → 1,84 vCPU). MongoDB lo
+  descarta una cota con lo medido: ~25 ms de CPU por búsqueda sobre sus 2 vCPU,
+  ~77–80 búsquedas/s, ocho veces el MST. Que sea el bucle de eventos o el GIL
+  del único worker es inferencia: se confirma midiendo con más workers,
+  trabajo futuro.
+- **El criterio del README no decide**, y se conserva tal cual con su resultado
+  debajo: sin cifra para «claramente», a 50.000 da MongoDB en 8 de 8 corridas
+  que fallan con un umbral ≤ ×1,28 y en 4 de 8 a ×1,5; su cláusula de CPU es
+  falsa a 5.000 por construcción y a 50.000 se cumple con 0,016 vCPU de margen.
+- **Dos bajadas de escalón en el MST de 50.000** (10,62 → 10,09 → 9,59, por la
+  017 y la 020; la 020 coincide con una liberación de swap de 1,5 GB). Error
+  del procedimiento en esa celda, ~15 %, por encima del ~10 % declarado. Con
+  10,62/s el incremento de 1000/MST sería de 46,1 ms, el 83 % del de latencia:
+  la conclusión se mantiene.
+- **#62 sigue abierto** hasta decidir los pesos; comentario con el alcance
+  actual (siete perfiles). Registrado: #126 (`prio:2-demo`), el «Estado» del
+  README de `fr-commercial-microservice`, desfasado.
+- **Queda.** Los pesos del pricing (Miguel). Corregir en `CLAUDE.md` el motivo
+  de la excepción de «Modo entrega»: dice que hasta 50.000 rostros la búsqueda
+  sigue limitada por la inferencia, y la campaña midió que no. La demo (#115).
+
+| Dónde | Cambio |
+|---|---|
+| CLAUDE.md | El motivo de la excepción de los perfiles 1:N: el límite no es la inferencia sino una parte en serie dentro de `fr` |
+| Memoria, capítulo 7 | f(n) medida; qué limita la búsqueda 1:N y la cota de MongoDB; el criterio que no decidió; dos bajadas de escalón a 50.000 |
+| Pricing (memoria) | Los pesos, desde σ_S de los siete perfiles, cuando se decidan |
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -1902,7 +1951,13 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: análisis de los perfiles 1:N → demo
+### Siguiente paso: pesos del pricing → demo
+
+La campaña está medida y analizada (sesión 19). Queda decidir los pesos del
+pricing desde σ_S de los siete perfiles (Miguel), que cierra #62; corregir el
+motivo de la excepción de «Modo entrega» en `CLAUDE.md`; y la demo (#115).
+
+#### ~~Siguiente paso: análisis de los perfiles 1:N → demo~~ — hecho en la sesión 19
 
 Los tres perfiles 1:N se lanzaron en la sesión 18 desde `5f48e92`. Lo que
 queda de la campaña:
