@@ -5,7 +5,10 @@
 # Uso:
 #   ./scripts/dev-down.sh              # para todos, conserva volúmenes
 #   ./scripts/dev-down.sh -v           # para todos y elimina volúmenes
-#   ./scripts/dev-down.sh auth         # para solo un servicio (auth | pricing | gateway)
+#   ./scripts/dev-down.sh auth         # para solo un servicio
+#                                      # (auth | pricing | fr | gateway | frontend | acme)
+#
+# `all` para también la Universidad ACME, que levanta scripts/demo-up.sh.
 # ===========================================================
 
 VOLUMES=false
@@ -89,6 +92,36 @@ if [ "$SERVICE" == "all" ] || [ "$SERVICE" == "gateway" ]; then
   step "Parando API Gateway (Kong)..."
   docker compose -f "$ROOT_DIR/api-gateway/docker-compose.dev.yml" $DOWN_ARGS
   ok "API Gateway parado"
+fi
+
+# ---------------------
+# Universidad ACME y panel: los clientes, antes que la plataforma
+# ---------------------
+# El compose de ACME exige su .env (env_file required). Si no existe, ACME no
+# pudo arrancar con este compose y no hay nada que parar.
+if [ "$SERVICE" == "all" ] || [ "$SERVICE" == "acme" ]; then
+  step "Parando la Universidad ACME..."
+  if [ -f "$ROOT_DIR/acme-demo/.env" ]; then
+    docker compose -f "$ROOT_DIR/acme-demo/docker-compose.yml" $DOWN_ARGS
+  fi
+  ok "Universidad ACME parada"
+fi
+
+if [ "$SERVICE" == "all" ] || [ "$SERVICE" == "frontend" ]; then
+  step "Parando el panel del cliente..."
+  if [ -f "$ROOT_DIR/frontend/docker-compose.dev.yml" ]; then
+    docker compose -f "$ROOT_DIR/frontend/docker-compose.dev.yml" $DOWN_ARGS
+  fi
+  ok "Panel parado"
+fi
+
+# ---------------------
+# FR Commercial
+# ---------------------
+if [ "$SERVICE" == "all" ] || [ "$SERVICE" == "fr" ]; then
+  step "Parando FR Commercial..."
+  docker compose -f "$ROOT_DIR/fr-commercial-microservice/docker-compose.dev.yml" $DOWN_ARGS
+  ok "FR Commercial parado"
 fi
 
 # ---------------------

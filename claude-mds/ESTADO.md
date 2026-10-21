@@ -3,10 +3,9 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 19: campaña 1:N medida y analizada (#62), PR
-> #10 de `fr-commercial-microservice` fusionado. Siguiente paso: decidir los
-> pesos del pricing (Miguel), corregir el motivo de la excepción en
-> `CLAUDE.md`, y la demo (#115).
+> **Última actualización:** sesión 20: la demo (#115), con los dos canales
+> sobre la misma galería; seis PR fusionados en cinco repositorios. Siguiente
+> paso: decidir los pesos del pricing (Miguel) y F10 con SPACE (Miguel).
 
 ---
 
@@ -1871,6 +1870,50 @@ vacío. Partida: `main` en `5f48e92`.
 | Memoria, capítulo 7 | f(n) medida; qué limita la búsqueda 1:N y la cota de MongoDB; el criterio que no decidió; dos bajadas de escalón a 50.000 |
 | Pricing (memoria) | Los pesos, desde σ_S de los siete perfiles, cuando se decidan |
 
+**Sesión 20 — la demo (#115).** Partida: `main` de api-gateway en `fba70f1`,
+de fr en `157101d` y de docs en `6511c08`; `frontend` y `acme-demo` no
+existían (se crean, privados). **Fusionado**, en este orden y con commit de
+fusión: api-gateway#3 (`683cfe1`, sin CI: #93), fr#12 (`fd53be6`), fr#11
+(`8e497f3`), frontend#1 (`226c972`), acme-demo#1 (`a2de300`) y este PR,
+docs#130. CI de `main` en verde: fr `39634267287`, frontend `39634326327`,
+acme-demo `39634374460`. Cerrados: #104, #105, #115, #126, #128.
+
+- **La ruta de fr en la pasarela (#104).** `/v1/fr/commercial`, con la misma
+  configuración que `pricing-route` y el limitador por cuenta en ámbito
+  `global` hasta F10. Lo que solo lleva `enrollmentToken` se corta con `401`
+  (anotado en `kong.yml` y en #43). `identity-headers.sh` comprueba la ruta
+  con eco y contra fr real, con pares 200/404 entre dos cuentas. Se vio fallar
+  contra una copia sin saneado. Cada push a `/config` comprueba ahora su `201`.
+- **Panel** (`frontend`, `:5173`). Registro e inicio de sesión, la API KEY una
+  sola vez (al registrarse y al rotarla), galerías con sus identidades y
+  `verifyPair`. Refs #60.
+- **Universidad ACME** (`acme-demo`, `:4000`). La matrícula llama a
+  `createIdentity` con `externalId` y el acceso al examen a
+  `verifyAgainstIdentity`. Solo su backend lee la API KEY y habla con la
+  pasarela; el navegador le habla en el mismo origen. Medido: la clave no
+  aparece ni en el bundle ni en las respuestas de `/api`.
+- **La orden de la demo:** `./scripts/demo-up.sh`. Desde `docker ps` vacío,
+  exit 0. No siembra nada. El respaldo es `demo-seed.sh` (Christina Koch con
+  retratos de la NASA, de dominio público; matrícula ficticia). `dev-up.sh`
+  levanta ya fr y el panel (#105). El recorrido de punta a punta, por la
+  interfaz en Chromium, está en el cuerpo de frontend#1.
+- **Pillow 13.0.0 (#128).** 8 CVE de 12.3.0 ponían en rojo la CI de fr. Con
+  13.0.0, los vectores de 77 imágenes de LFW son idénticos bit a bit y
+  `verifyPair` da la misma confianza. La campaña se midió en `157101d` con
+  12.3.0 y no se repite.
+- **Registrado:**
+  - #127: `rate-limit.sh` no comprueba el push (`alcance:futuro`);
+  - #129: desde un contenedor ajeno a `tfm-network`, `host.docker.internal`
+    alcanza fr (`:3002`) y la Admin API de Kong (`:8001`) (`alcance:futuro`).
+- **Queda.**
+  - Los pesos del pricing (#62) y F10 con SPACE (#42), de Miguel.
+  - Consumo y webhooks en el panel (#60).
+
+| Dónde | Cambio |
+|---|---|
+| CLAUDE.md | Los repos `frontend` y `acme-demo`; los puertos 5173 y 4000; Vitest en los proyectos con Vite (lo pone Miguel). «Los microservicios solo son alcanzables a través de la pasarela» no se cumple en desarrollo con Docker Desktop (#129) |
+| Memoria | La demo: los dos canales sobre la misma galería, y el respaldo |
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -1951,7 +1994,12 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: pesos del pricing → demo
+### Siguiente paso: pesos del pricing y F10
+
+La demo está hecha (sesión 20). Quedan los pesos del pricing desde σ_S de los
+siete perfiles, que cierran #62, y F10 con SPACE (#42). Los dos son de Miguel.
+
+#### ~~Siguiente paso: pesos del pricing → demo~~ — la demo, hecha en la sesión 20
 
 La campaña está medida y analizada (sesión 19). Queda decidir los pesos del
 pricing desde σ_S de los siete perfiles (Miguel), que cierra #62; corregir el
