@@ -68,6 +68,12 @@ pregunta. Toda modificación de contrato empieza por la especificación.
 | **FR Commercial** | Python/FastAPI + MongoDB + Redis | Galerías, identidades, rostros e inferencia |
 | **Frontend** | React | Evaluación **y panel de administración** |
 
+Fuera del SaaS, la demo de la sesión 20: el panel del cliente vive en
+`TFM-MIS-MEM/frontend` (puerto 5173) y la Universidad ACME, un cliente ficticio
+del canal de API con su propio backend, en `TFM-MIS-MEM/acme-demo` (puerto
+4000). ACME no sigue `node-template` ni usa MongoDB: no es un microservicio del
+SaaS. Se arranca todo con `scripts/demo-up.sh`.
+
 > **FR Commercial SÍ tiene base de datos propia.** Persiste galerías,
 > identidades, rostros, puntos de notificación y sus entregas. La v1 de este
 > fichero decía lo contrario.
@@ -173,6 +179,13 @@ X-Role           "CUSTOMER" | "ADMIN"
 **Kong DEBE borrar o sobrescribir estas cabeceras si vienen en la petición
 original.** Si no, cualquiera suplanta otra cuenta enviándolas a mano. Los
 microservicios solo son alcanzables a través de la pasarela.
+
+En desarrollo con Docker Desktop esto **no se cumple del todo**: los puertos
+publicados en `127.0.0.1` son alcanzables desde cualquier contenedor por
+`host.docker.internal`. Medido en la sesión 20 desde el backend de la
+Universidad ACME, que no está en `tfm-network`: `fr` en `:3002` y la Admin API
+de Kong en `:8001` responden 200 (#129, #114). La garantía es la del despliegue
+(`ClusterIP`), no la del compose de desarrollo.
 
 Cómo se impone, porque el saneado es propiedad de la pasarela y no de un plugin
 concreto:
@@ -526,6 +539,9 @@ Webhooks salientes: firma HMAC-SHA256 sobre `timestamp + "." + cuerpo_crudo`
 
 - Por cada controlador o servicio, su test correspondiente.
   Node.js: **Jest** · Python: **pytest**.
+  Proyectos con Vite (el panel y la demo de la Universidad ACME, backend
+  incluido): **Vitest**, por compatibilidad con ESM. Los microservicios Node
+  siguen con Jest.
 - **Antes de refactorizar `auth` o `pricing`, tener tests de contrato
   mínimos.** Sin ellos no se puede distinguir «lo ha arreglado» de «lo ha roto
   de otra manera».
