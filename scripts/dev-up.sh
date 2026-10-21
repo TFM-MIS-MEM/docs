@@ -4,7 +4,12 @@
 #
 # Uso:
 #   ./scripts/dev-up.sh              # levanta todos los servicios
-#   ./scripts/dev-up.sh auth         # levanta solo un servicio (auth | pricing | gateway)
+#   ./scripts/dev-up.sh auth         # levanta solo un servicio
+#                                    # (auth | pricing | fr | gateway | frontend)
+#
+# Levanta la plataforma: los tres microservicios, la pasarela y el panel. La
+# Universidad ACME, que es un cliente de la plataforma y no parte de ella, la
+# añade scripts/demo-up.sh.
 #
 # Códigos de salida:
 #   0  todos los servicios solicitados están arriba y sanos
@@ -212,9 +217,9 @@ if ! docker compose version > /dev/null 2>&1; then
 fi
 
 case "$SERVICE" in
-  all|auth|pricing|gateway) ;;
+  all|auth|pricing|fr|gateway|frontend) ;;
   *)
-    fail "servicio desconocido: '$SERVICE'. Use: all | auth | pricing | gateway"
+    fail "servicio desconocido: '$SERVICE'. Use: all | auth | pricing | fr | gateway | frontend"
     exit 1
     ;;
 esac
@@ -377,7 +382,26 @@ else
 fi
 
 # ---------------------
-# 5. API Gateway (Kong)
+# 5. FR Commercial
+# ---------------------
+# Sin .env: el compose de desarrollo fija MONGODB_URI y EMBEDDING_TOKEN_SECRET
+# en la capa de orquestación, así que no hay secreto que generar. Si MongoDB
+# pasa a exigir autenticación (docs#106), este paso tendrá que generar la
+# credencial como hace el bootstrap con los de auth.
+#
+# Va antes que la pasarela: la ruta /v1/fr/commercial de kong.yml apunta a
+# fr-commercial-service, y Kong no necesita que exista para arrancar, pero la
+# primera petición sí.
+if [ "$SERVICE" = "all" ] || [ "$SERVICE" = "fr" ]; then
+  compose_up "fr" "FR Commercial (fr-commercial-service + fr-commercial-mongodb)" \
+    "$ROOT_DIR/fr-commercial-microservice/docker-compose.dev.yml" \
+    "fr-commercial-mongodb" "fr-commercial-service"
+else
+  SKIPPED="$SKIPPED fr"
+fi
+
+# ---------------------
+# 6. API Gateway (Kong)
 # ---------------------
 if [ "$SERVICE" = "all" ] || [ "$SERVICE" = "gateway" ]; then
   compose_up "gateway" "API Gateway (Kong)" \
@@ -385,6 +409,19 @@ if [ "$SERVICE" = "all" ] || [ "$SERVICE" = "gateway" ]; then
     "kong-gateway"
 else
   SKIPPED="$SKIPPED gateway"
+fi
+
+# ---------------------
+# 7. Panel del cliente (frontend)
+# ---------------------
+# Ficheros estáticos: el navegador habla con la pasarela en :8000, no con este
+# contenedor, que por eso no entra en tfm-network.
+if [ "$SERVICE" = "all" ] || [ "$SERVICE" = "frontend" ]; then
+  compose_up "frontend" "Panel del cliente (frontend-panel)" \
+    "$ROOT_DIR/frontend/docker-compose.dev.yml" \
+    "frontend-panel"
+else
+  SKIPPED="$SKIPPED frontend"
 fi
 
 # ---------------------
@@ -414,12 +451,15 @@ echo -e " Servicios sanos:${GREEN}$STARTED${NC}"
 [ -n "$SKIPPED" ] && echo -e " No solicitados:${YELLOW}$SKIPPED${NC}"
 echo ""
 echo " Endpoints disponibles:"
-echo "   Auth (directo)    -> http://localhost:3000"
-echo "   Pricing (directo) -> http://localhost:3001"
+echo "   Panel del cliente -> http://localhost:5173"
 echo "   Kong Proxy        -> http://localhost:8000"
 echo "   Kong Admin API    -> http://localhost:8001"
+echo "   Auth (directo)    -> http://localhost:3000"
+echo "   Pricing (directo) -> http://localhost:3001"
+echo "   FR (directo)      -> http://localhost:3002   (solo 127.0.0.1)"
 echo "   Auth MongoDB      -> mongodb://localhost:27017"
 echo "   Pricing MongoDB   -> mongodb://localhost:27018"
+echo "   FR MongoDB        -> mongodb://localhost:27019 (solo 127.0.0.1)"
 echo ""
 echo " Prueba rápida (directa a auth, sin pasar por Kong):"
 echo "   curl -X POST http://localhost:3000/v1/auth/register \\"
