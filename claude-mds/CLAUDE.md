@@ -658,11 +658,13 @@ luego `prio:3-si-da-tiempo`. Lo etiquetado `alcance:futuro` no se toca.
   `search` y claves nuevas en el estado del servicio: CPU de `fr`, y CPU y
   lecturas de MongoDB), sin tocar la corrida, la búsqueda, la confirmación ni
   la validez; en `compose.yml`, el servicio `seed` y `GALLERY` en `k6`; y
-  `seed.py`, nuevo. `criteria.py` no cambia. Motivo: hasta 50.000 rostros la
-  búsqueda sigue limitada por la inferencia, para la que se calibró, y la
-  fórmula de unidades solo compara operaciones medidas sobre el mismo
-  despliegue. Desde la sesión 18, MongoDB entra en lo medido y comparte los
-  vCPU 0–1 con k6.
+  `seed.py`, nuevo. `criteria.py` no cambia. Motivo: la fórmula de unidades solo
+  compara operaciones medidas sobre el mismo despliegue. La suposición de la
+  sesión 17 (hasta 50.000 rostros, la búsqueda sigue limitada por la inferencia)
+  la desmintió la campaña (sesión 19): la limita una parte en serie dentro del
+  proceso de `fr`, no MongoDB, así que `w1t1c8` no es necesariamente la mejor
+  configuración para 1:N. Medir con más workers es trabajo futuro. Desde la
+  sesión 18, MongoDB entra en lo medido y comparte los vCPU 0–1 con k6.
 - **Antes de medir, el agente para y avisa**, y Miguel prepara el Mac: solo
   Docker, VS Code y el chat abiertos; enchufado y sin bajo consumo;
   `caffeinate -i`; `docker ps` vacío, con la pila de desarrollo y el `fr` de
