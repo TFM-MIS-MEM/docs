@@ -230,7 +230,10 @@ forma de la respuesta:
 - `401` credencial ausente o inválida · `403` credencial válida sin permiso.
 - `403` con código en el cuerpo (patrón **Error Report**): `QUOTA_EXCEEDED`,
   `GALLERY_FROZEN_MODEL_NOT_IN_PLAN`, `FEATURE_NOT_IN_PLAN`,
-  `MODEL_NOT_IN_PLAN`.
+  `MODEL_NOT_IN_PLAN`, `GALLERY_LIMIT_REACHED`, `INDEXED_FACES_LIMIT_REACHED`.
+  Agotar cualquiera de los tres límites de unidades (minuto, hora o mes) es
+  `QUOTA_EXCEEDED`: son límites del plan, económicos, aunque se cuenten por
+  ventana. `details` dice cuál ha saltado y cuándo se renueva.
 - `409` con código en el cuerpo: `LAST_FACE_OF_IDENTITY`,
   `GALLERY_NAME_ALREADY_EXISTS`, `EXTERNAL_ID_ALREADY_EXISTS`. **Todo índice
   único lleva su `409` declarado en cada operación que escribe sus campos, y
@@ -418,7 +421,8 @@ los modelos y los límites: la pasarela no conoce el plan (sesión 5).
 
 La tarifa está escrita en Pricing2Yaml 3.1 y validada con pricing4ts 0.12.1
 (`minQuantity`/`maxQuantity`/`quantityStep`, no `min`/`max`/`step`, que la
-librería ignora). El fichero entra con la integración de SPACE (#42).
+librería ignora). El fichero entra con la integración de SPACE (#51), junto
+con F10 (#42).
 
 ### Unidades de consumo
 
