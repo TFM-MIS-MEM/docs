@@ -5,9 +5,9 @@
 # Uso:
 #   ./scripts/dev-up.sh              # levanta todos los servicios
 #   ./scripts/dev-up.sh auth         # levanta solo un servicio
-#                                    # (auth | pricing | fr | gateway | frontend)
+#                                    # (space | auth | pricing | fr | gateway | frontend)
 #
-# Levanta la plataforma: los tres microservicios, la pasarela y el panel. La
+# Levanta la plataforma: SPACE, los tres microservicios, la pasarela y el panel. La
 # Universidad ACME, que es un cliente de la plataforma y no parte de ella, la
 # añade scripts/demo-up.sh.
 #
@@ -217,9 +217,9 @@ if ! docker compose version > /dev/null 2>&1; then
 fi
 
 case "$SERVICE" in
-  all|auth|pricing|fr|gateway|frontend) ;;
+  all|space|auth|pricing|fr|gateway|frontend) ;;
   *)
-    fail "servicio desconocido: '$SERVICE'. Use: all | auth | pricing | fr | gateway | frontend"
+    fail "servicio desconocido: '$SERVICE'. Use: all | space | auth | pricing | fr | gateway | frontend"
     exit 1
     ;;
 esac
@@ -360,7 +360,50 @@ else
 fi
 
 # ---------------------
-# 3. Auth Microservice
+# 3. SPACE
+# ---------------------
+# Va antes que pricing y fr-commercial: los dos leen de su .env la clave que
+# escribe space-bootstrap.sh, y fr-commercial no arranca sin ella.
+#
+# Sus secretos (firma de tokens, administrador, MongoDB) viven en
+# pricing-microservice/space/.env y se generan aquí la primera vez. No tienen
+# valor por omisión en el compose: si falta uno, no arranca.
+if [ "$SERVICE" = "all" ] || [ "$SERVICE" = "space" ]; then
+  SPACE_ENV="$ROOT_DIR/pricing-microservice/space/.env"
+  if [ ! -f "$SPACE_ENV" ]; then
+    if ! command -v openssl > /dev/null 2>&1; then
+      fail "openssl no está disponible y es imprescindible para generar los secretos de SPACE."
+      exit 1
+    fi
+    (
+      umask 077
+      {
+        echo "SPACE_JWT_SECRET=$(openssl rand -hex 32)"
+        echo "SPACE_JWT_SALT=$(openssl rand -hex 16)"
+        echo "SPACE_ADMIN_USER=admin"
+        echo "SPACE_ADMIN_PASSWORD=$(openssl rand -hex 16)"
+        echo "SPACE_MONGO_ROOT_USERNAME=space"
+        echo "SPACE_MONGO_ROOT_PASSWORD=$(openssl rand -hex 16)"
+      } > "$SPACE_ENV"
+    )
+    ok "Secretos de SPACE generados en pricing-microservice/space/.env"
+  fi
+
+  if compose_up "space" "SPACE (space-server + space-mongodb + space-redis)" \
+    "$ROOT_DIR/pricing-microservice/space/docker-compose.yml" \
+    "space-mongodb" "space-redis" "space-server"; then
+    step "Configurando SPACE (claves y tarifa fijada)..."
+    if ! "$SCRIPT_DIR/space-bootstrap.sh"; then
+      STARTED="${STARTED/ space/}"
+      record_failure "space" "space-bootstrap.sh falló" "space-server"
+    fi
+  fi
+else
+  SKIPPED="$SKIPPED space"
+fi
+
+# ---------------------
+# 4. Auth Microservice
 # ---------------------
 if [ "$SERVICE" = "all" ] || [ "$SERVICE" = "auth" ]; then
   compose_up "auth" "Auth Microservice (auth-service + auth-mongodb)" \
@@ -371,7 +414,7 @@ else
 fi
 
 # ---------------------
-# 4. Pricing Microservice
+# 5. Pricing Microservice
 # ---------------------
 if [ "$SERVICE" = "all" ] || [ "$SERVICE" = "pricing" ]; then
   compose_up "pricing" "Pricing Microservice (pricing-service + pricing-mongodb)" \
@@ -382,7 +425,7 @@ else
 fi
 
 # ---------------------
-# 5. FR Commercial
+# 6. FR Commercial
 # ---------------------
 # Sin .env: el compose de desarrollo fija MONGODB_URI y EMBEDDING_TOKEN_SECRET
 # en la capa de orquestación, así que no hay secreto que generar. Si MongoDB
@@ -401,7 +444,7 @@ else
 fi
 
 # ---------------------
-# 6. API Gateway (Kong)
+# 7. API Gateway (Kong)
 # ---------------------
 if [ "$SERVICE" = "all" ] || [ "$SERVICE" = "gateway" ]; then
   compose_up "gateway" "API Gateway (Kong)" \
@@ -412,7 +455,7 @@ else
 fi
 
 # ---------------------
-# 7. Panel del cliente (frontend)
+# 8. Panel del cliente (frontend)
 # ---------------------
 # Ficheros estáticos: el navegador habla con la pasarela en :8000, no con este
 # contenedor, que por eso no entra en tfm-network.
@@ -456,6 +499,7 @@ echo "   Kong Proxy        -> http://localhost:8000"
 echo "   Kong Admin API    -> http://localhost:8001"
 echo "   Auth (directo)    -> http://localhost:3000"
 echo "   Pricing (directo) -> http://localhost:3001"
+echo "   SPACE             -> sin puertos: solo http://space-server:3000 dentro de tfm-network"
 echo "   FR (directo)      -> http://localhost:3002   (solo 127.0.0.1)"
 echo "   Auth MongoDB      -> mongodb://localhost:27017"
 echo "   Pricing MongoDB   -> mongodb://localhost:27018"
