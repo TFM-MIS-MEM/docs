@@ -3,9 +3,9 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 20: la demo (#115), con los dos canales
-> sobre la misma galería; seis PR fusionados en cinco repositorios. Siguiente
-> paso: decidir los pesos del pricing (Miguel) y F10 con SPACE (Miguel).
+> **Última actualización:** sesión 21: la tarifa definitiva en los issues y
+> en el contrato de fr (fr#13); #62 cerrado. Siguiente paso: F9 (#41) y F10
+> con SPACE (#42, #51).
 
 ---
 
@@ -1914,6 +1914,44 @@ acme-demo `39634374460`. Cerrados: #104, #105, #115, #126, #128.
 | CLAUDE.md | Los repos `frontend` y `acme-demo`; los puertos 5173 y 4000; Vitest en los proyectos con Vite (lo pone Miguel). «Los microservicios solo son alcanzables a través de la pasarela» no se cumple en desarrollo con Docker Desktop (#129) |
 | Memoria | La demo: los dos canales sobre la misma galería, y el respaldo |
 
+**Sesión 21 — la tarifa en los issues y en el contrato (#62).** Sin código.
+Partida: docs en `1ffbc99` (tarifa en `ea15df1` y regla 6 en `1ffbc99`, de
+Miguel), fr en `8e497f3`. **Fusionado**, con commit de fusión: fr#13
+(`afc7156`); CI de `main` `39765464354` en verde. Cerrados: #62, #58
+(obsoleto; el resto va a #131), #59 (duplicado de #75) y #109 (`4d35a3f`,
+`ea15df1`).
+
+- **#62**, con un comentario: la tabla de unidades sale de σ_S de los siete
+  perfiles, sin peso por modelo; la búsqueda, del ajuste lineal de
+  5.000–50.000. Cifras de `load/README.md`, y σ_S de `analyze.py campaign`.
+- **Revisión de los 72 abiertos**, contrastada con el código y el historial:
+  13 con cambios y 59 vigentes. Hay un comentario de veredicto en los 10 que
+  siguen abiertos (#41, #42, #44–#49, #60, #84). Etiquetas: #41 y #60 a
+  `prio:3-si-da-tiempo`; #122, con `svc:fr` y `tipo:infra`.
+- **Decidido (Miguel).** Agotar las unidades de cualquiera de las tres
+  ventanas es `403 QUOTA_EXCEEDED`, con `details` (regla 6). Los vectores y la
+  prueba de vida quedan fuera de la tarifa: hoy se rechazan con `400`. El
+  Pricing2Yaml entra con SPACE (#51), junto a F10 (#42). **Sin decidir:** los
+  complementos en Free y Business (#48) y al cambiar de plan (#49), con la
+  pregunta anotada en cada uno.
+- **fr#13, solo texto de descripción.** La tabla de unidades, el «Consumo» de
+  cada operación, el umbral solo en Business, `QUOTA_EXCEEDED` en las tres
+  ventanas, la prueba de vida fuera de la tarifa y `faceCount` con el límite
+  por cuenta. Quitando las `description` de texto, el contrato es idéntico al
+  de `main`. Ojo con esa comprobación: tiene que quitar **solo las de texto**,
+  porque `Gallery` tiene una propiedad que se llama `description`. Siguen
+  provisionales hasta F10 que `recognition.py` acepte `threshold` siempre y
+  que nadie emita `QUOTA_EXCEEDED`.
+- **Queda.**
+  - F9 (#41), y F10 con SPACE (#42, #51).
+  - `pricing.yaml`, que sigue con la tarifa anterior: `Limits` en peticiones
+    por segundo, y `liveness` en `AddOnId` (#46, #48).
+
+| Dónde | Cambio |
+|---|---|
+| Memoria, capítulos 5 y 7 | La tarifa definitiva y los pesos medidos; `QUOTA_EXCEEDED` en las tres ventanas; vectores y prueba de vida fuera de la tarifa |
+| Memoria, contrato | El de fr ya describe la tarifa (fr#13); el de pricing todavía no (#46, #48) |
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -1994,7 +2032,14 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: pesos del pricing y F10
+### Siguiente paso: F9 (#41) y F10 con SPACE (#42, #51)
+
+Los pesos están decididos y el contrato de fr los describe (sesión 21). F9
+calcula las unidades de la tabla de `CLAUDE.md`; F10 las aplica en las tres
+ventanas, junto con los rostros por cuenta, las galerías y las features (canal
+de API, con la propuesta de ejecutar ahí #84; 1:N; umbral solo en Business).
+
+#### ~~Siguiente paso: pesos del pricing y F10~~ — los pesos, decididos en la sesión 21
 
 La demo está hecha (sesión 20). Quedan los pesos del pricing desde σ_S de los
 siete perfiles, que cierran #62, y F10 con SPACE (#42). Los dos son de Miguel.
