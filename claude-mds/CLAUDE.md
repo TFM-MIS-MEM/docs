@@ -136,7 +136,7 @@ Ambos canales usan **los mismos endpoints**. El canal se manifiesta solo en:
 - **Autenticación**: dos security schemes sobre el mismo recurso
   (JWT = web, API KEY = api).
 - **Pricing**: la disponibilidad del canal API es una feature del plan,
-  evaluada en la pasarela.
+  evaluada en `fr-commercial` (la pasarela no conoce el plan).
 - **Analítica**: dimensión `channel` en los eventos de consumo, derivada del
   tipo de credencial validada.
 
@@ -378,47 +378,75 @@ rostro computa sobre la cuota.
 
 ## Pricing
 
-| | Free | Pro (19 €) | Business (59 €) |
-|---|---|---|---|
-| Canal | Solo web | Web + API | Web + API |
-| Rostros | 100 | 5.000 | 50.000 |
-| Unidades/mes | 500 | 50.000 | 500.000 |
-| Galerías | 1 | 5 | Ilimitadas |
-| Rate (inferencia/gestión) | 3/10 | 5/50 | 20/200 |
-| Modelos | `xs` | `xs`,`s` (+`base` con add-on) | `xs`,`s`,`base` |
-| 1:N | ✗ | ✓ | ✓ |
-| Umbral configurable | ✗ | ✓ | ✓ |
-| Webhooks | ✗ | ✓ | ✓ |
-| White-label widget | ✗ | ✗ | ✓ |
+Diseñado tras la campaña de capacidad (#62): la estructura y los precios, con
+la pricificación de García-Fernández et al. (ICSOC 2024 Workshops); los valores
+de los límites, con SCALE. Estrategia de penetración: precio de equilibrio que
+cubre la operación y recupera la inversión en 24 meses con la población
+objetivo. El razonamiento completo está en la memoria (capítulos 5 y 7).
 
-Add-ons: Liveness (booleano, 9 €, Pro+) · Modelo `base` (booleano, 29 €, Pro) ·
-Pack de ampliación (**cuantitativo**, 5 €, máx. 3, +5.000 rostros y
-+25.000 unidades).
+| | Free | Pro (1,47 €) | Business (12,38 €) |
+|---|---|---|---|
+| Canal API y extracción de vectores | ✗ | ✓ | ✓ |
+| Identificación 1:N | ✗ | ✓ | ✓ |
+| Modelos | `xs` | `xs`, `s` (+`base` con complemento) | `xs`, `s`, `base` |
+| Umbral configurable | ✗ | ✗ | ✓ |
+| Rostros (por cuenta) | 100 | 5.000 | 50.000 |
+| Galerías | 1 | 5 | Ilimitadas |
+| Unidades/minuto | 8 | 41 | 416 |
+| Unidades/hora | 48 | 250 | 2.500 |
+| Unidades/mes | 4.800 | 25.000 | 250.000 |
+
+Complementos, **solo Pro**, 1,21 € cada uno:
+- Modelo `base` (booleano): acceso, no capacidad.
+- Pack de ampliación (**cuantitativo**, de 1 a 3): +5.000 rostros, +41
+  unidades/min, +250/h y +25.000/mes, la capacidad de una cuenta Pro. No se
+  ofrece a Business: lo sacaría del rango medido (50.000 rostros).
+
+Fuera de la tarifa: prueba de vida, notificaciones y el componente para el
+navegador (no implementados), y retención, soporte y acuerdo de nivel de
+servicio (sin respaldo). Precios sin impuestos.
+
+**El límite de rostros es por cuenta, no por galería**: así acota también cada
+galería y, con ella, el coste de cualquier búsqueda.
 
 Los cuantitativos requieren `quantity` y devuelven `409` al superar el máximo;
 enviar `quantity` en uno booleano es `400`. Se almacenan como
 `{addOnId, quantity}`, no como lista de identificadores.
 
+**La disponibilidad del canal de API se evalúa en `fr-commercial`**, junto a
+los modelos y los límites: la pasarela no conoce el plan (sesión 5).
+
+La tarifa está escrita en Pricing2Yaml 3.1 y validada con pricing4ts 0.12.1
+(`minQuantity`/`maxQuantity`/`quantityStep`, no `min`/`max`/`step`, que la
+librería ignora). El fichero entra con la integración de SPACE (#42).
+
 ### Unidades de consumo
 
-```
-u = n_inferencias × peso_modelo  [+ f(tamaño_galería) en búsquedas]
-```
+Unidad = una detección en una imagen de 480 × 640. Pesos medidos en la campaña
+(#62), no hipótesis:
 
-Pesos (**hipótesis pendiente de medición empírica**): detector 1, `xs` 1,
-`s` 3, `base` 10. Operaciones sin inferencia: 0,1. Gestión: 0.
+| Operación | Unidades |
+|---|---|
+| Detección | 1 |
+| Verificación de dos imágenes (cualquier modelo) | 3 |
+| Identificación 1:N | 1,5 + 0,05 por cada 1.000 rostros de la galería |
+| Extracción de vectores | 1,5 |
+| Alta de identidad / añadir rostro (con imagen) | 1,5 |
+| Verificación contra identidad | 1,5 |
+| Gestión | 0 |
 
-**Medición parcial (sesión 14, #120): esos pesos no se sostienen.** Con
-imágenes de 480 × 640, los tres modelos cuestan lo mismo dentro del error del
-método (~10 %), y una verificación cuesta unas tres detecciones con cualquiera
-de ellos: MTCNN es la mayor parte del coste. Los pesos definitivos salen de
-`analyze.py` al cerrar la campaña (#62). Hasta entonces, no implementar nada
-que dependa de 1 / 3 / 10.
+**Sin peso por modelo**: los tres cuestan lo mismo dentro del error del método.
+Los límites de unidades **sustituyen** a los límites de tasa en peticiones de
+la versión anterior, que eran incompatibles con la capacidad medida. La
+gestión conserva un límite en peticiones solo como protección operativa, sin
+valores decididos y no derivado de la medición.
 
-Se calcula en `fr-commercial` (único que conoce modelo, número de inferencias y
-tamaño de galería) y se reporta **asíncronamente** a `pricing` con las
-dimensiones cuenta, canal, modelo y endpoint. Consistencia eventual aceptada y
-documentada.
+El límite de rostros es de **estado** y acota el coste máximo de una búsqueda
+en cada plan: Pro ~1,75 unidades (~2,5 con tres packs), Business ~4,0.
+
+Se calcula en `fr-commercial` (único que conoce operación y tamaño de galería)
+y se reporta **asíncronamente** a `pricing` con las dimensiones cuenta, canal,
+modelo y endpoint. Consistencia eventual aceptada y documentada.
 
 ### Congelación de galerías
 
