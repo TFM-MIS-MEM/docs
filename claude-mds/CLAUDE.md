@@ -54,7 +54,7 @@ pregunta. Toda modificación de contrato empieza por la especificación.
 | Almacén efímero | Redis |
 | Mensajería | Kafka |
 | Pasarela de pago | Stripe |
-| Feature toggling | SPACE |
+| Planes, límites y consumo | SPACE v1.7.1, con parche propio (`pricing-microservice/space/`) |
 | Frontend | React + Vite + Tailwind + Shadcn/UI |
 | Infraestructura | Docker + Kubernetes |
 
@@ -64,8 +64,8 @@ pregunta. Toda modificación de contrato empieza por la especificación.
 |---|---|---|
 | **Kong** | Kong | Punto de entrada único. Validación de credenciales, rate limit, propagación de metadatos |
 | **Auth** | Node.js + MongoDB | Cuentas, credenciales de ambos canales, ciclo de vida de la cuenta |
-| **Pricing** | Node.js + MongoDB | Suscripciones, Stripe, SPACE, consumo acumulado |
-| **FR Commercial** | Python/FastAPI + MongoDB + Redis | Galerías, identidades, rostros e inferencia |
+| **Pricing** | Node.js + MongoDB | Suscripciones, Stripe, la tarifa y los contratos de SPACE |
+| **FR Commercial** | Python/FastAPI + MongoDB + Redis | Galerías, identidades, rostros e inferencia; decide cada operación con el plan que evalúa SPACE |
 | **Frontend** | React | Evaluación **y panel de administración** |
 
 Fuera del SaaS, la demo de la sesión 20: el panel del cliente vive en
@@ -251,6 +251,8 @@ forma de la respuesta:
 - Toda operación **alcanzable a través de la pasarela** declara `429`.
 - Toda operación con `security` declara además `401`.
 - Toda operación que admite `apiKeyAuth` declara además `503` y `403`.
+- Toda operación que consulta el plan declara `503 PLAN_UNAVAILABLE`, **en los
+  dos canales**, con `Retry-After`: sin plan no se admite nada por omisión.
 - Se declara `403` también en las operaciones que pueden denegarse por plan,
   cuota o estado del recurso, con los códigos de dominio de la lista de arriba.
 - **No** se declaran las respuestas accidentales (`500`, `502`, `504`) ni las
@@ -424,6 +426,41 @@ La tarifa está escrita en Pricing2Yaml 3.1 y validada con pricing4ts 0.12.1
 librería ignora). El fichero entra con la integración de SPACE (#51), junto
 con F10 (#42).
 
+**Los contratos de SPACE son de `pricing`, con una excepción.** `pricing` los
+nova desde el receptor de Stripe (compra → plan comprado; baja → FREE). El
+contrato FREE de una cuenta nueva lo crea **`fr-commercial` en su primer uso**,
+ante el `404` de SPACE: `pricing` no se entera de las altas, porque no hay
+`account.created`. Es una desviación consciente de la propiedad, y moverla a
+`pricing` es TFM-MIS-MEM/docs#132.
+
+### SPACE
+
+- **La tarifa** es Pricing2Yaml 3.1 con una `expression` por funcionalidad: sin
+  ella, SPACE la evalúa siempre a `false`. La copia de referencia es
+  `pricing-microservice/pricing/fr-commercial-pricing.yaml`. SPHERE es donde
+  se publica, y en SPACE el servicio se llama `frsaas`, como la tarifa en
+  SPHERE; es el prefijo de toda funcionalidad y todo límite.
+- **Versión fijada** en `pricing/sphere.env`: la cargan `space-bootstrap.sh`
+  (política `all_pick`) y la vista de planes del panel, nunca la última. Una
+  prueba compara su huella con la del repositorio.
+- **`SPHERE_SYNC_ENABLED=false`**: SPACE ejecuta las expresiones con `eval()`, y
+  con sincronización automática ejecutaría código quien publicara en SPHERE.
+- **Claves de organización `MANAGEMENT`** para `fr` y `pricing`. `EVALUATION`
+  no puede evaluar ni pedir el token de pricing; `MANAGEMENT` no puede borrar
+  contratos (#135).
+- **`fr` habla con SPACE por REST, directo a `space-server:3000`**, nunca por su
+  nginx, que limita a 20 peticiones/s por IP. Plazos: 250 ms al conectar, 1 s
+  en total, sin reintentos. SPACE caído, un 5xx o un `error` en la evaluación
+  dan `503 PLAN_UNAVAILABLE`.
+- **El plan** sale de `pricingContext` del token de pricing, nunca de la
+  evaluación por funcionalidad que trae el token: `identityManagement`
+  comprueba unidades, y con ellas agotadas no se podría ni listar. El umbral
+  configurable solo se admite si el plan lo incluye.
+- **La imagen** se construye una vez desde el tag v1.7.1 con los parches de
+  `space/patches/` (el 0001 corrige que un límite renovable solo se aplicara
+  en su primer periodo) y queda en local como `tfm/space-server:1.7.1-tfm.N`.
+  `dev-up.sh` no la reconstruye si existe.
+
 ### Unidades de consumo
 
 Unidad = una detección en una imagen de 480 × 640. Pesos medidos en la campaña
@@ -449,18 +486,32 @@ El límite de rostros es de **estado** y acota el coste máximo de una búsqueda
 en cada plan: Pro ~1,75 unidades (~2,5 con tres packs), Business ~4,0.
 
 Se calcula en `fr-commercial` (único que conoce operación y tamaño de galería)
-y se reporta **asíncronamente** a `pricing` con las dimensiones cuenta, canal,
-modelo y endpoint. Consistencia eventual aceptada y documentada.
+y se imputa **síncronamente en SPACE al admitir la operación**: una evaluación
+con consumo, la misma cantidad en las tres ventanas. Va después de todo lo
+barato (identidad, validación, existencia, congelación, imagen decodificada,
+plan) y antes de inferir. **Sin deshacer**: lo que falla después queda cobrado
+(#136). SPACE compara antes de sumar, así que una cuenta puede pasarse de un
+límite en lo que cueste una operación; está en el contrato de `fr`. El evento
+de consumo a `pricing`, con canal, modelo y endpoint, queda solo para la
+analítica (#138) y no está implementado.
+
+**Los límites de estado los cuenta `fr-commercial`** con sus contadores (suma
+de `faceCount` de las galerías de la cuenta, número de galerías); SPACE solo da
+el valor del límite. Ninguna expresión de la tarifa nombra `maxFaces` ni
+`maxGalleries`.
 
 ### Congelación de galerías
 
-Al bajar de plan, las galerías cuyo modelo ya no está disponible pasan a
-`frozen`: solo lectura y borrado; se rechazan enrolamiento, verificación y
-búsqueda con `403 GALLERY_FROZEN_MODEL_NOT_IN_PLAN`. **Nunca se borran.**
+Una galería cuyo modelo no está en el plan vigente está `frozen`: solo lectura
+y borrado; se rechazan enrolamiento, verificación y búsqueda con
+`403 GALLERY_FROZEN_MODEL_NOT_IN_PLAN`. **Nunca se borran.**
 
-Se dispara con `subscription.plan_changed` y se procesa **en ambos sentidos**:
-congelar y descongelar. La descongelación cubre la mejora de plan y la
-contratación del add-on de modelo.
+**Se calcula al vuelo, con el plan de cada petición, y no se guarda** (F10,
+#42): las lecturas devuelven `status: frozen` y `frozenReason:
+MODEL_NOT_IN_PLAN`, y la galería vuelve a `active` en cuanto el plan incluye su
+modelo (mejora de plan o complemento `baseModel`). **Ya no depende de
+`subscription.plan_changed`**, que la versión anterior de este fichero usaba
+para congelar y descongelar.
 
 ---
 
@@ -555,8 +606,8 @@ argumento de la ventana de revocación documentado en la memoria.
 | Evento | Publica | Consume |
 |---|---|---|
 | `account.deleted` | `auth` | `fr-commercial` (purga en cascada), `pricing` (cancela Stripe) |
-| `subscription.plan_changed` | `pricing` | `fr-commercial` (congela/descongela) |
-| consumo | `fr-commercial` | `pricing` |
+| `subscription.plan_changed` | `pricing` | nadie hoy: la congelación se calcula al vuelo |
+| consumo | `fr-commercial` | `pricing` (solo analítica, #138) |
 
 `subscription.plan_changed` se publica cuando el cambio **se hace efectivo**
 (cierre de periodo en las bajadas), no cuando se solicita.

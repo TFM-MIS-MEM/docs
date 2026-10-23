@@ -1952,6 +1952,54 @@ Miguel), fr en `8e497f3`. **Fusionado**, con commit de fusión: fr#13
 | Memoria, capítulos 5 y 7 | La tarifa definitiva y los pesos medidos; `QUOTA_EXCEEDED` en las tres ventanas; vectores y prueba de vida fuera de la tarifa |
 | Memoria, contrato | El de fr ya describe la tarifa (fr#13); el de pricing todavía no (#46, #48) |
 
+**Sesión 22 — SPACE: estudio e integración básica (#42, #51).** Partida: `main`
+de pricing en `cbf9371`, de fr en `afc7156`, de frontend en `226c972` y de docs
+en `d646f98`. **Nada fusionado**: cinco PR abiertos, pendientes de revisión
+(pricing#4 y #3, fr#14, frontend#2 y docs#140). El estudio (`NOTAS.md`, `PLAN.md` y las
+pruebas) está en `~/master/tfm/space-estudio/`, fuera de los repositorios.
+
+- **Estudio.** SPACE v1.7.1 carga la tarifa 3.1 por SPHERE o por fichero, pero
+  sin una `expression` por funcionalidad evalúa todo a `false`; un límite
+  renovable solo se aplicaba en su primer periodo; deshacer restaura una
+  instantánea en vez de restar; su nginx limita a 20 peticiones/s por IP; la
+  clave `EVALUATION` no puede evaluar. Lo demás, en `NOTAS.md`.
+- **Tarifa 1.1** con expresiones, publicada por Miguel en SPHERE (versión
+  `6ada81594b2b5b01c587d1f0`) y versionada en
+  `pricing-microservice/pricing/fr-commercial-pricing.yaml`. La versión fijada
+  vive en `pricing/sphere.env`; huella comprobada contra el manifiesto.
+- **SPACE desplegado** en `pricing-microservice/space/`: sin puertos, secretos
+  con `${VAR:?}`, sincronización automática apagada, y la imagen construida
+  desde el tag con el parche de renovación (prueba antes y después).
+  `dev-up.sh` lo levanta antes que pricing y fr, y `space-bootstrap.sh` emite
+  las claves `MANAGEMENT` y carga la versión fijada con `all_pick`.
+- **fr (F10).** Contrato primero (`503 PLAN_UNAVAILABLE` en los dos canales,
+  «El plan de la cuenta»), luego el código: plan desde `pricingContext` del
+  token, unidades imputadas antes de inferir y sin deshacer, límites de estado
+  con los contadores de fr, congelación al vuelo, umbral solo en Business,
+  contrato FREE en el primer uso. 722 pruebas, cobertura 99,06 %.
+  Comprobación contra SPACE real en el PR.
+- **pricing.** Novación desde Stripe: compra → plan comprado, baja → FREE.
+- **Panel.** Vista de planes pintada desde la versión fijada en SPHERE
+  (CORS medido: `*`), con pricing4ts cargado bajo demanda.
+- **Demo.** `demo-plan.sh` pone la cuenta de ACME en BUSINESS; `demo-up.sh` lo
+  llama antes de comprobar ACME. Recorrido de la sesión 20 repetido en Chromium
+  por la interfaz, en verde, más la segunda galería en FREE
+  (`GALLERY_LIMIT_REACHED`) y la vista de planes; salida en el PR de frontend.
+  `acme-demo/.env` queda con la cuenta del recorrido, como en la sesión 20.
+- **Issues nuevos** (`alcance:futuro`): #132 (contrato FREE desde pricing con
+  `account.created`), #133 (complementos y cambio de plan), #134 (mes de SPACE
+  y Stripe), #135 (`account.deleted` → borrar contrato; exige clave `ALL`),
+  #136 (devolver unidades), #137 (caché del plan) y #138 (analítica por canal).
+  #139: la CI de pricing, roja en «Security audit» por avisos nuevos ajenos.
+- **Revisión.** #139 en su propio PR (pricing#4: solo lockfile). `uuid`
+  forzado a `>=11.1.1` en el panel (pricing4ts lo declara sin importarlo; aviso
+  aguas arriba en #141). La imagen de SPACE se construye una vez y `dev-up.sh`
+  no la reconstruye (medido desde `docker ps` vacío). Las lecturas de una
+  galería reflejan la congelación al vuelo. fr#14 cierra #42 y #84; pricing#3,
+  #51. `CLAUDE.md` al día (regla 4).
+- **Queda.** Fusionar, por este orden: pricing#4, pricing#3, fr#14, frontend#2
+  y docs#140. Proponer el parche de renovación al repositorio de SPACE.
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde

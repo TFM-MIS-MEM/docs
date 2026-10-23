@@ -112,6 +112,15 @@ if [ -z "$API_KEY" ] || [ -z "$GALLERY_ID" ]; then
   exit 1
 fi
 
+# El plan de la cuenta de ACME. Entra por el canal de API, que FREE no incluye,
+# y una cuenta recién registrada es FREE: sin esto, getGallery daría
+# 403 FEATURE_NOT_IN_PLAN. En el SaaS el plan lo pone pricing cuando Stripe
+# confirma el pago; la demo no pasa por el pago. Si falla, getGallery dice por qué.
+step "Plan de la cuenta de ACME (BUSINESS, en SPACE)..."
+if ! "$SCRIPT_DIR/demo-plan.sh" "$API_KEY" BUSINESS; then
+  echo "  No se pudo fijar el plan; la comprobación siguiente dirá por qué."
+fi
+
 # getGallery por el canal de API, el mismo que usará ACME. La clave no se
 # imprime en ningún caso.
 OUT=$(mktemp)
@@ -128,6 +137,12 @@ case "$code" in
     fail "la pasarela rechaza la API KEY de ACME (401): $body"
     echo "  La clave no existe o se ha rotado. Rótala en el panel y actualiza ACME_API_KEY."
     how_to_configure
+    exit 1
+    ;;
+  403)
+    fail "getGallery con la API KEY de ACME respondió 403: $body"
+    echo "  Con FEATURE_NOT_IN_PLAN, la cuenta no está en un plan con canal de API:"
+    echo "    $SCRIPT_DIR/demo-plan.sh <API_KEY> BUSINESS"
     exit 1
     ;;
   404)

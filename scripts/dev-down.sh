@@ -6,7 +6,7 @@
 #   ./scripts/dev-down.sh              # para todos, conserva volúmenes
 #   ./scripts/dev-down.sh -v           # para todos y elimina volúmenes
 #   ./scripts/dev-down.sh auth         # para solo un servicio
-#                                      # (auth | pricing | fr | gateway | frontend | acme)
+#                                      # (space | auth | pricing | fr | gateway | frontend | acme)
 #
 # `all` para también la Universidad ACME, que levanta scripts/demo-up.sh.
 # ===========================================================
@@ -80,6 +80,17 @@ NC='\033[0m' # No Color
 function step() { echo -e "\n${CYAN}===> $1${NC}"; }
 function ok() { echo -e "  ${GREEN}[OK] $1${NC}"; }
 
+# La versión fijada de la tarifa en SPHERE (SPHERE_PRICING_*). Su única fuente es
+# pricing-microservice/pricing/sphere.env; la leen el compose del panel (vista de
+# planes) y space-bootstrap.sh. Se exporta aquí para que `docker compose` la
+# interpole: el compose del panel la exige con `:?`, también al parar.
+SPHERE_ENV="$ROOT_DIR/pricing-microservice/pricing/sphere.env"
+if [ -f "$SPHERE_ENV" ]; then
+  set -a
+  . "$SPHERE_ENV"
+  set +a
+fi
+
 DOWN_ARGS="down"
 if [ "$VOLUMES" = true ]; then
   DOWN_ARGS="down -v"
@@ -140,6 +151,22 @@ if [ "$SERVICE" == "all" ] || [ "$SERVICE" == "pricing" ]; then
   step "Parando Pricing Microservice..."
   docker compose -f "$ROOT_DIR/pricing-microservice/docker-compose.dev.yml" $DOWN_ARGS
   ok "Pricing Microservice parado"
+fi
+
+# ---------------------
+# SPACE
+# ---------------------
+# Su compose exige space/.env (los secretos no tienen valor por omisión), y
+# `docker compose` lo comprueba también al parar. Sin ese fichero, SPACE no pudo
+# arrancar con este compose y no hay nada que parar. Con -v se borran también
+# sus contratos y claves: el siguiente dev-up.sh emite claves nuevas y las
+# reescribe en los .env de fr-commercial y pricing.
+if [ "$SERVICE" == "all" ] || [ "$SERVICE" == "space" ]; then
+  if [ -f "$ROOT_DIR/pricing-microservice/space/.env" ]; then
+    step "Parando SPACE..."
+    docker compose -f "$ROOT_DIR/pricing-microservice/space/docker-compose.yml" $DOWN_ARGS
+    ok "SPACE parado"
+  fi
 fi
 
 # ---------------------

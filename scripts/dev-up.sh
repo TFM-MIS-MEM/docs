@@ -5,9 +5,9 @@
 # Uso:
 #   ./scripts/dev-up.sh              # levanta todos los servicios
 #   ./scripts/dev-up.sh auth         # levanta solo un servicio
-#                                    # (auth | pricing | fr | gateway | frontend)
+#                                    # (space | auth | pricing | fr | gateway | frontend)
 #
-# Levanta la plataforma: los tres microservicios, la pasarela y el panel. La
+# Levanta la plataforma: SPACE, los tres microservicios, la pasarela y el panel. La
 # Universidad ACME, que es un cliente de la plataforma y no parte de ella, la
 # añade scripts/demo-up.sh.
 #
@@ -66,6 +66,17 @@ if [ -z "$ROOT_DIR" ] || [ ! -d "$ROOT_DIR/api-gateway" ]; then
   echo "y api-gateway. Si están en otro sitio, indícalo con TFM_ROOT:" >&2
   echo "  TFM_ROOT=/ruta/al/workspace $0 $*" >&2
   exit 1
+fi
+
+# La versión fijada de la tarifa en SPHERE (SPHERE_PRICING_*). Su única fuente es
+# pricing-microservice/pricing/sphere.env; la leen el compose del panel (vista de
+# planes) y space-bootstrap.sh. Se exporta aquí para que `docker compose` la
+# interpole: el compose del panel la exige con `:?`, también al parar.
+SPHERE_ENV="$ROOT_DIR/pricing-microservice/pricing/sphere.env"
+if [ -f "$SPHERE_ENV" ]; then
+  set -a
+  . "$SPHERE_ENV"
+  set +a
 fi
 
 # Tiempo máximo de espera, en segundos, a que un contenedor quede sano.
@@ -176,7 +187,12 @@ function compose_up() {
     return 1
   fi
 
-  if ! docker compose -f "$compose_file" up --build -d; then
+  # `--build` salvo que se pida lo contrario (COMPOSE_NO_BUILD=1): SPACE se
+  # construye aparte, una vez, porque su Dockerfile clona de GitHub.
+  local build_flag="--build"
+  [ "${COMPOSE_NO_BUILD:-0}" = "1" ] && build_flag=""
+
+  if ! docker compose -f "$compose_file" up $build_flag -d; then
     record_failure "$service" "la construcción o el arranque falló" "${containers[@]}"
     return 1
   fi
@@ -217,9 +233,9 @@ if ! docker compose version > /dev/null 2>&1; then
 fi
 
 case "$SERVICE" in
-  all|auth|pricing|fr|gateway|frontend) ;;
+  all|space|auth|pricing|fr|gateway|frontend) ;;
   *)
-    fail "servicio desconocido: '$SERVICE'. Use: all | auth | pricing | fr | gateway | frontend"
+    fail "servicio desconocido: '$SERVICE'. Use: all | space | auth | pricing | fr | gateway | frontend"
     exit 1
     ;;
 esac
@@ -360,7 +376,66 @@ else
 fi
 
 # ---------------------
-# 3. Auth Microservice
+# 3. SPACE
+# ---------------------
+# Va antes que pricing y fr-commercial: los dos leen de su .env la clave que
+# escribe space-bootstrap.sh, y fr-commercial no arranca sin ella.
+#
+# Sus secretos (firma de tokens, administrador, MongoDB) viven en
+# pricing-microservice/space/.env y se generan aquí la primera vez. No tienen
+# valor por omisión en el compose: si falta uno, no arranca.
+if [ "$SERVICE" = "all" ] || [ "$SERVICE" = "space" ]; then
+  SPACE_ENV="$ROOT_DIR/pricing-microservice/space/.env"
+  if [ ! -f "$SPACE_ENV" ]; then
+    if ! command -v openssl > /dev/null 2>&1; then
+      fail "openssl no está disponible y es imprescindible para generar los secretos de SPACE."
+      exit 1
+    fi
+    (
+      umask 077
+      {
+        echo "SPACE_JWT_SECRET=$(openssl rand -hex 32)"
+        echo "SPACE_JWT_SALT=$(openssl rand -hex 16)"
+        echo "SPACE_ADMIN_USER=admin"
+        echo "SPACE_ADMIN_PASSWORD=$(openssl rand -hex 16)"
+        echo "SPACE_MONGO_ROOT_USERNAME=space"
+        echo "SPACE_MONGO_ROOT_PASSWORD=$(openssl rand -hex 16)"
+      } > "$SPACE_ENV"
+    )
+    ok "Secretos de SPACE generados en pricing-microservice/space/.env"
+  fi
+
+  # La imagen de SPACE (v1.7.1 con nuestros parches) se construye UNA vez y se
+  # queda en local con nombre y etiqueta fijos: su Dockerfile clona el tag de
+  # GitHub, y la demo no puede depender de la red. Con la imagen presente, no
+  # se reconstruye. Si cambian los parches, se sube la etiqueta en el compose
+  # (1.7.1-tfm.N) y este paso la construye.
+  SPACE_COMPOSE="$ROOT_DIR/pricing-microservice/space/docker-compose.yml"
+  SPACE_IMAGE=$(docker compose -f "$SPACE_COMPOSE" config --images 2>/dev/null | grep '^tfm/space-server:' | head -1)
+  if [ -n "$SPACE_IMAGE" ] && docker image inspect "$SPACE_IMAGE" > /dev/null 2>&1; then
+    ok "imagen $SPACE_IMAGE presente: no se reconstruye"
+  else
+    step "Construyendo la imagen de SPACE (${SPACE_IMAGE:-tfm/space-server}): necesita red, solo esta vez..."
+    if ! docker compose -f "$SPACE_COMPOSE" build space-server; then
+      record_failure "space" "no se pudo construir la imagen de SPACE"
+    fi
+  fi
+
+  if COMPOSE_NO_BUILD=1 compose_up "space" "SPACE (space-server + space-mongodb + space-redis)" \
+    "$SPACE_COMPOSE" \
+    "space-mongodb" "space-redis" "space-server"; then
+    step "Configurando SPACE (claves y tarifa fijada)..."
+    if ! "$SCRIPT_DIR/space-bootstrap.sh"; then
+      STARTED="${STARTED/ space/}"
+      record_failure "space" "space-bootstrap.sh falló" "space-server"
+    fi
+  fi
+else
+  SKIPPED="$SKIPPED space"
+fi
+
+# ---------------------
+# 4. Auth Microservice
 # ---------------------
 if [ "$SERVICE" = "all" ] || [ "$SERVICE" = "auth" ]; then
   compose_up "auth" "Auth Microservice (auth-service + auth-mongodb)" \
@@ -371,7 +446,7 @@ else
 fi
 
 # ---------------------
-# 4. Pricing Microservice
+# 5. Pricing Microservice
 # ---------------------
 if [ "$SERVICE" = "all" ] || [ "$SERVICE" = "pricing" ]; then
   compose_up "pricing" "Pricing Microservice (pricing-service + pricing-mongodb)" \
@@ -382,7 +457,7 @@ else
 fi
 
 # ---------------------
-# 5. FR Commercial
+# 6. FR Commercial
 # ---------------------
 # Sin .env: el compose de desarrollo fija MONGODB_URI y EMBEDDING_TOKEN_SECRET
 # en la capa de orquestación, así que no hay secreto que generar. Si MongoDB
@@ -401,7 +476,7 @@ else
 fi
 
 # ---------------------
-# 6. API Gateway (Kong)
+# 7. API Gateway (Kong)
 # ---------------------
 if [ "$SERVICE" = "all" ] || [ "$SERVICE" = "gateway" ]; then
   compose_up "gateway" "API Gateway (Kong)" \
@@ -412,7 +487,7 @@ else
 fi
 
 # ---------------------
-# 7. Panel del cliente (frontend)
+# 8. Panel del cliente (frontend)
 # ---------------------
 # Ficheros estáticos: el navegador habla con la pasarela en :8000, no con este
 # contenedor, que por eso no entra en tfm-network.
@@ -456,6 +531,7 @@ echo "   Kong Proxy        -> http://localhost:8000"
 echo "   Kong Admin API    -> http://localhost:8001"
 echo "   Auth (directo)    -> http://localhost:3000"
 echo "   Pricing (directo) -> http://localhost:3001"
+echo "   SPACE             -> sin puertos: solo http://space-server:3000 dentro de tfm-network"
 echo "   FR (directo)      -> http://localhost:3002   (solo 127.0.0.1)"
 echo "   Auth MongoDB      -> mongodb://localhost:27017"
 echo "   Pricing MongoDB   -> mongodb://localhost:27018"
