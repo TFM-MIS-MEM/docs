@@ -424,6 +424,13 @@ La tarifa está escrita en Pricing2Yaml 3.1 y validada con pricing4ts 0.12.1
 librería ignora). El fichero entra con la integración de SPACE (#51), junto
 con F10 (#42).
 
+**Los contratos de SPACE son de `pricing`, con una excepción.** `pricing` los
+nova desde el receptor de Stripe (compra → plan comprado; baja → FREE). El
+contrato FREE de una cuenta nueva lo crea **`fr-commercial` en su primer uso**,
+ante el `404` de SPACE: `pricing` no se entera de las altas, porque no hay
+`account.created`. Es una desviación consciente de la propiedad, y moverla a
+`pricing` es TFM-MIS-MEM/docs#132.
+
 ### Unidades de consumo
 
 Unidad = una detección en una imagen de 480 × 640. Pesos medidos en la campaña

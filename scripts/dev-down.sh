@@ -80,6 +80,17 @@ NC='\033[0m' # No Color
 function step() { echo -e "\n${CYAN}===> $1${NC}"; }
 function ok() { echo -e "  ${GREEN}[OK] $1${NC}"; }
 
+# La versión fijada de la tarifa en SPHERE (SPHERE_PRICING_*). Su única fuente es
+# pricing-microservice/pricing/sphere.env; la leen el compose del panel (vista de
+# planes) y space-bootstrap.sh. Se exporta aquí para que `docker compose` la
+# interpole: el compose del panel la exige con `:?`, también al parar.
+SPHERE_ENV="$ROOT_DIR/pricing-microservice/pricing/sphere.env"
+if [ -f "$SPHERE_ENV" ]; then
+  set -a
+  . "$SPHERE_ENV"
+  set +a
+fi
+
 DOWN_ARGS="down"
 if [ "$VOLUMES" = true ]; then
   DOWN_ARGS="down -v"

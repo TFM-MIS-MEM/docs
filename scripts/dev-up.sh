@@ -68,6 +68,17 @@ if [ -z "$ROOT_DIR" ] || [ ! -d "$ROOT_DIR/api-gateway" ]; then
   exit 1
 fi
 
+# La versión fijada de la tarifa en SPHERE (SPHERE_PRICING_*). Su única fuente es
+# pricing-microservice/pricing/sphere.env; la leen el compose del panel (vista de
+# planes) y space-bootstrap.sh. Se exporta aquí para que `docker compose` la
+# interpole: el compose del panel la exige con `:?`, también al parar.
+SPHERE_ENV="$ROOT_DIR/pricing-microservice/pricing/sphere.env"
+if [ -f "$SPHERE_ENV" ]; then
+  set -a
+  . "$SPHERE_ENV"
+  set +a
+fi
+
 # Tiempo máximo de espera, en segundos, a que un contenedor quede sano.
 # Configurable para poder probar el camino de fallo sin esperar minuto y medio.
 HEALTH_TIMEOUT=${HEALTH_TIMEOUT:-90}

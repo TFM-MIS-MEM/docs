@@ -13,6 +13,8 @@
 #      porque auth solo guarda el hash y no puede devolver la anterior.
 #   2. Galería «ACME · Matrícula», creada con el JWT (canal web) si no existe.
 #   3. Escribe acme-demo/.env con la API KEY y el id de la galería.
+#   3b. Pone la cuenta en BUSINESS en SPACE (demo-plan.sh): ACME entra por el
+#      canal de API, que FREE no incluye.
 #   4. Levanta ACME y matricula, a través de su backend (que guarda la
 #      correspondencia), a Christina Koch con seed/koch_2023_480x640.jpg.
 #
@@ -114,6 +116,14 @@ step "Configuración de ACME..."
 API_KEY=$(read_env_value ACME_API_KEY)
 GALLERY_ID=$(read_env_value ACME_GALLERY_ID)
 
+# ACME entra por el canal de API, que FREE no incluye: la cuenta va a BUSINESS
+# (demo-plan.sh). Antes de comprobar la galería, que por el canal de API daría
+# 403 con la cuenta en FREE. Si la clave ya no vale, falla y se sigue: el
+# camino de abajo registra o rota.
+if [ -n "$API_KEY" ]; then
+  "$SCRIPT_DIR/demo-plan.sh" "$API_KEY" BUSINESS || true
+fi
+
 if [ -n "$API_KEY" ] && [ -n "$GALLERY_ID" ] && gallery_ok "$API_KEY" "$GALLERY_ID"; then
   ok "$ACME_ENV ya vale (getGallery 200): no se toca"
 else
@@ -140,6 +150,8 @@ else
     API_KEY=$(field apiKey)
     ok "API KEY rotada (la anterior deja de valer)"
   fi
+
+  "$SCRIPT_DIR/demo-plan.sh" "$API_KEY" BUSINESS || die "no se pudo poner la cuenta de demo en BUSINESS."
 
   # La galería, por el canal web: el mismo camino que el panel.
   curl -s -o "$TMP/list.json" -H "Authorization: Bearer $TOKEN" \
