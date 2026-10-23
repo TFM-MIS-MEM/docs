@@ -187,7 +187,12 @@ function compose_up() {
     return 1
   fi
 
-  if ! docker compose -f "$compose_file" up --build -d; then
+  # `--build` salvo que se pida lo contrario (COMPOSE_NO_BUILD=1): SPACE se
+  # construye aparte, una vez, porque su Dockerfile clona de GitHub.
+  local build_flag="--build"
+  [ "${COMPOSE_NO_BUILD:-0}" = "1" ] && build_flag=""
+
+  if ! docker compose -f "$compose_file" up $build_flag -d; then
     record_failure "$service" "la construcción o el arranque falló" "${containers[@]}"
     return 1
   fi
@@ -400,8 +405,24 @@ if [ "$SERVICE" = "all" ] || [ "$SERVICE" = "space" ]; then
     ok "Secretos de SPACE generados en pricing-microservice/space/.env"
   fi
 
-  if compose_up "space" "SPACE (space-server + space-mongodb + space-redis)" \
-    "$ROOT_DIR/pricing-microservice/space/docker-compose.yml" \
+  # La imagen de SPACE (v1.7.1 con nuestros parches) se construye UNA vez y se
+  # queda en local con nombre y etiqueta fijos: su Dockerfile clona el tag de
+  # GitHub, y la demo no puede depender de la red. Con la imagen presente, no
+  # se reconstruye. Si cambian los parches, se sube la etiqueta en el compose
+  # (1.7.1-tfm.N) y este paso la construye.
+  SPACE_COMPOSE="$ROOT_DIR/pricing-microservice/space/docker-compose.yml"
+  SPACE_IMAGE=$(docker compose -f "$SPACE_COMPOSE" config --images 2>/dev/null | grep '^tfm/space-server:' | head -1)
+  if [ -n "$SPACE_IMAGE" ] && docker image inspect "$SPACE_IMAGE" > /dev/null 2>&1; then
+    ok "imagen $SPACE_IMAGE presente: no se reconstruye"
+  else
+    step "Construyendo la imagen de SPACE (${SPACE_IMAGE:-tfm/space-server}): necesita red, solo esta vez..."
+    if ! docker compose -f "$SPACE_COMPOSE" build space-server; then
+      record_failure "space" "no se pudo construir la imagen de SPACE"
+    fi
+  fi
+
+  if COMPOSE_NO_BUILD=1 compose_up "space" "SPACE (space-server + space-mongodb + space-redis)" \
+    "$SPACE_COMPOSE" \
     "space-mongodb" "space-redis" "space-server"; then
     step "Configurando SPACE (claves y tarifa fijada)..."
     if ! "$SCRIPT_DIR/space-bootstrap.sh"; then
