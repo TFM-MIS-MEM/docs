@@ -1954,8 +1954,8 @@ Miguel), fr en `8e497f3`. **Fusionado**, con commit de fusión: fr#13
 
 **Sesión 22 — SPACE: estudio e integración básica (#42, #51).** Partida: `main`
 de pricing en `cbf9371`, de fr en `afc7156`, de frontend en `226c972` y de docs
-en `d646f98`. **Nada fusionado**: cuatro PR abiertos, pendientes de revisión
-(pricing, fr, frontend y docs). El estudio (`NOTAS.md`, `PLAN.md` y las
+en `d646f98`. **Nada fusionado**: cinco PR abiertos, pendientes de revisión
+(pricing#4 y #3, fr#14, frontend#2 y docs#140). El estudio (`NOTAS.md`, `PLAN.md` y las
 pruebas) está en `~/master/tfm/space-estudio/`, fuera de los repositorios.
 
 - **Estudio.** SPACE v1.7.1 carga la tarifa 3.1 por SPHERE o por fichero, pero
@@ -1991,8 +1991,14 @@ pruebas) está en `~/master/tfm/space-estudio/`, fuera de los repositorios.
   y Stripe), #135 (`account.deleted` → borrar contrato; exige clave `ALL`),
   #136 (devolver unidades), #137 (caché del plan) y #138 (analítica por canal).
   #139: la CI de pricing, roja en «Security audit» por avisos nuevos ajenos.
-- **Queda.** Revisar y fusionar los cuatro PR; decidir #139 (bloquea la CI de
-  pricing); proponer el parche de renovación al repositorio de SPACE.
+- **Revisión.** #139 en su propio PR (pricing#4: solo lockfile). `uuid`
+  forzado a `>=11.1.1` en el panel (pricing4ts lo declara sin importarlo; aviso
+  aguas arriba en #141). La imagen de SPACE se construye una vez y `dev-up.sh`
+  no la reconstruye (medido desde `docker ps` vacío). Las lecturas de una
+  galería reflejan la congelación al vuelo. fr#14 cierra #42 y #84; pricing#3,
+  #51. `CLAUDE.md` al día (regla 4).
+- **Queda.** Fusionar, por este orden: pricing#4, pricing#3, fr#14, frontend#2
+  y docs#140. Proponer el parche de renovación al repositorio de SPACE.
 
 ### La fase 1 NO está terminada
 
