@@ -3,9 +3,8 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 21: la tarifa definitiva en los issues y
-> en el contrato de fr (fr#13); #62 cerrado. Siguiente paso: F9 (#41) y F10
-> con SPACE (#42, #51).
+> **Última actualización:** sesión 22: SPACE integrado (F10 #42, #51, #84);
+> siete PR fusionados, CI de main en verde. Siguiente paso: la memoria.
 
 ---
 
@@ -1982,8 +1981,9 @@ Cerrados: #139, #51, #42 y #84.
   `account.created`), #133 (complementos y cambio de plan), #134 (mes de SPACE y
   Stripe), #135 (`account.deleted` → borrar contrato), #136 (devolver unidades),
   #137 (caché del plan), #138 (analítica por canal) y #141 (aviso a Pricing4TS).
-- **Queda.** Proponer el parche de renovación al repositorio de SPACE; la
-  memoria (congelación al vuelo en los capítulos 4 y 6; SPACE en 5 y 7).
+- **Queda.** La memoria: las correcciones (congelación al vuelo y consumo
+  síncrono en los capítulos 4 y 6) y SPACE en los capítulos 5, 6 y 8, según
+  `claude/apunte-memoria-sesion22.md`.
 
 ### La fase 1 NO está terminada
 
@@ -2065,7 +2065,14 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: F9 (#41) y F10 con SPACE (#42, #51)
+### Siguiente paso: la memoria
+
+Primero la tabla de correcciones de `claude/apunte-memoria-sesion22.md`
+(texto que la sesión 22 deja falso) y después lo nuevo de SPACE en los
+capítulos 4, 5, 6 y 8. Queda comprobar si #41 (F9) se puede cerrar: fr#14
+calcula las unidades de la tabla.
+
+#### ~~Siguiente paso: F9 (#41) y F10 con SPACE (#42, #51)~~ — F10 hecho en la sesión 22
 
 Los pesos están decididos y el contrato de fr los describe (sesión 21). F9
 calcula las unidades de la tabla de `CLAUDE.md`; F10 las aplica en las tres
