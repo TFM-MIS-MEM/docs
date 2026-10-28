@@ -389,7 +389,7 @@ de los límites, con SCALE. Estrategia de penetración: precio de equilibrio que
 cubre la operación y recupera la inversión en 24 meses con la población
 objetivo. El razonamiento completo está en la memoria (capítulos 5 y 7).
 
-| | Free | Pro (1,47 €) | Business (12,38 €) |
+| | Free | Pro (1,49 €) | Business (12,65 €) |
 |---|---|---|---|
 | Canal API y extracción de vectores | ✗ | ✓ | ✓ |
 | Identificación 1:N | ✗ | ✓ | ✓ |
@@ -401,7 +401,7 @@ objetivo. El razonamiento completo está en la memoria (capítulos 5 y 7).
 | Unidades/hora | 48 | 250 | 2.500 |
 | Unidades/mes | 4.800 | 25.000 | 250.000 |
 
-Complementos, **solo Pro**, 1,21 € cada uno:
+Complementos, **solo Pro**, 1,24 € cada uno:
 - Modelo `base` (booleano): acceso, no capacidad.
 - Pack de ampliación (**cuantitativo**, de 1 a 3): +5.000 rostros, +41
   unidades/min, +250/h y +25.000/mes, la capacidad de una cuenta Pro. No se

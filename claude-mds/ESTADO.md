@@ -3,7 +3,7 @@
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 22: SPACE integrado (F10 #42, #51, #84);
+> **Última actualización:** sesión 23: tarifa 1.2 (precios recalculados). Sesión 22: SPACE integrado (F10 #42, #51, #84);
 > siete PR fusionados, CI de main en verde. Siguiente paso: la memoria.
 
 ---
@@ -1984,6 +1984,24 @@ Cerrados: #139, #51, #42 y #84.
 - **Queda.** La memoria: las correcciones (congelación al vuelo y consumo
   síncrono en los capítulos 4 y 6) y SPACE en los capítulos 5, 6 y 8, según
   `claude/apunte-memoria-sesion22.md`.
+
+**Sesión 23 — Tarifa 1.2: precios recalculados.** La 1.1 tenía mal calculados
+los precios; la 1.2 solo cambia los precios: Pro 1,47 → 1,49 €, Business
+12,38 → 12,65 €, complementos 1,21 → 1,24 €. Funcionalidades y límites no
+cambian. **Fusionado** con commit de fusión: pricing#5 (`d2053b8`) y
+frontend#4 (`e092ee3`). CI de `main` en verde: pricing `40727607207`,
+frontend `40727619880`.
+
+- **pricing.** `sphere.env` fija la 1.2 (`6ae21c99412c826b6fbde67f`), con la
+  huella del manifiesto; `tariff.test.js` en verde también con
+  `SPHERE_ONLINE=1`. De paso, `body-parser` 1.20.9 en el lockfile:
+  GHSA-27r3-jxmh-p828 ponía en rojo `pnpm audit --prod` y bloqueaba el PR.
+- **Panel.** Copia local para trabajar sin red, ahora en la 1.2.
+- **Abierto.** #143 (`auth` y `node-template`, mismo advisory).
+- **Queda.** Volver a ejecutar `space-bootstrap.sh` en las pilas levantadas,
+  porque SPACE sigue con la 1.1 hasta entonces. Revisar en Stripe que los
+  precios de los Price ID se correspondan con los nuevos importes. Actualizar
+  los precios en la memoria (capítulos 5 y 7).
 
 ### La fase 1 NO está terminada
 
