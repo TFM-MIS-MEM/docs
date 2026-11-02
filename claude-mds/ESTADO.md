@@ -1,10 +1,10 @@
-# ESTADO — TFM: SaaS multicanal de reconocimiento facial
+# ESTADO — TFM: SaaS multicliente de reconocimiento facial
 
 > Documento de continuidad. Se actualiza al cerrar cada sesión de trabajo.
 > Su función es sustituir a la relectura de conversaciones anteriores.
 >
-> **Última actualización:** sesión 23: tarifa 1.2 (precios recalculados). Sesión 22: SPACE integrado (F10 #42, #51, #84);
-> siete PR fusionados, CI de main en verde. Siguiente paso: la memoria.
+> **Última actualización:** sesión 24: la memoria, revisada con el tutor, en
+> versión de entrega; releases `entrega-tfm` en los tres repositorios.
 
 ---
 
@@ -2003,6 +2003,45 @@ frontend `40727619880`.
   precios de los Price ID se correspondan con los nuevos importes. Actualizar
   los precios en la memoria (capítulos 5 y 7).
 
+**Sesión 24 — la memoria, hasta la versión de entrega.** Sin código de
+servicio. La memoria recoge lo de las sesiones 22 y 23 (SPACE y la tarifa
+1.2, con Pro a 1,49 €, Business a 12,65 € y complementos a 1,24 €) y la
+revisión del tutor, aplicada capítulo a capítulo
+(`claude/parches-memoria-sesion24.tex` como registro y
+`claude/apunte-memoria-sesion24.md` con las decisiones). Resultado: PDF de
+164 páginas, anexos A (IA), B (contratos OpenAPI completos) y C (tarifa, con
+el enlace persistente de SPHERE y su primera y última página).
+
+- **Nomenclatura (Miguel): clientes e interfaces.** «Canal» queda obsoleto y
+  no se usa; «frontend web», no «panel web»; título «multicliente». Dos
+  interfaces (API REST pública, síncrona; webhooks, asíncronos, diseñados y
+  sin implementar) y cuatro clientes (frontend web con JWT, backend integrador
+  con clave de API, componente de captura con token de enrolamiento, servidor
+  receptor con HMAC), más Stripe. Lo que distingue a los clientes es la
+  credencial, y la asimetría la impone el contrato: la cuenta y la suscripción
+  solo admiten JWT; `extractEmbedding` y `createEnrollmentToken`, solo clave
+  de API. Los contratos siguen diciendo «canal web/canal API» en sus
+  descripciones; el anexo B lo aclara en su introducción.
+- **Figuras nuevas:** el SaaS de GitHub con sus interfaces y su mapa de
+  operaciones (cap. 1), y las de FaceAPI, clientes e interfaces y mapa de
+  operaciones por credencial (cap. 4).
+- **La congelación de galerías es un patrón oscuro** (obstrucción, Gray et al.
+  2018): con los tres modelos al mismo coste solo protege la segmentación. Va
+  al final de §5.3.2 como hallazgo a posteriori; la corrección propuesta es
+  que el modelo restrinja solo las galerías nuevas.
+- **Cap. 5:** §5.3.5 con los límites de capacidad en Pricing2Yaml (tres
+  extractos) y §5.3.6 con la alternativa por complementos. SCALE se cita en la
+  versión que tiene Miguel; la figura 5.1 no cambia. SPACE no tiene operación
+  para comprobar una petición antes de ejecutarla (leído en el código de
+  v1.7.1).
+- **Repositorios.** auth#7 (vigencia del JWT en `auth.yaml`); auth#8,
+  pricing#6 y fr#15 (dependencias vulnerables). Tag y release `entrega-tfm` en
+  los tres. Los repositorios son **privados**.
+- **Anotado, sin issue todavía:** `suspend.test.js` de auth es intermitente
+  (5034 ms frente al tope de 5000), y por la regla de las pruebas intermitentes
+  hay que arreglarlo o retirarlo; el comentario de `pnpm-workspace.yaml` de
+  auth está desfasado.
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
@@ -2083,12 +2122,24 @@ De la sesión 7 salen además **cuatro issues nuevos**, ninguno bloqueante:
 
 Se anotan aquí para que «fase 1 cerrada» no se dé por buena antes de tiempo.
 
-### Siguiente paso: la memoria
+### Siguiente paso: la entrega
 
-Primero la tabla de correcciones de `claude/apunte-memoria-sesion22.md`
-(texto que la sesión 22 deja falso) y después lo nuevo de SPACE en los
-capítulos 4, 5, 6 y 8. Queda comprobar si #41 (F9) se puede cerrar: fr#14
-calcula las unidades de la tabla.
+La memoria está en versión de entrega, a falta del último visto bueno del
+tutor. Queda una decisión suya: si los repositorios se hacen públicos o se da
+acceso al tribunal.
+
+- **Públicos:** antes, gitleaks sobre todo el historial y el aviso de licencia
+  de los pesos de EdgeFace (CC BY-NC-SA 4.0); después, el anexo B recortado,
+  con enlaces a la release `entrega-tfm`.
+- **Privados:** el anexo B se queda completo, como está.
+
+Rellenar el anexo II (checklist de autoevaluación) y renombrar el PDF, que
+Overleaf descarga con el título antiguo («interfaz dual»). De la sesión 23
+quedan volver a ejecutar `space-bootstrap.sh` en las pilas levantadas, que
+siguen con la 1.1, y revisar en Stripe que los Price ID tengan los importes
+nuevos; los precios de la memoria ya son los de la 1.2.
+
+#### ~~Siguiente paso: la memoria~~ — hecho en la sesión 24
 
 #### ~~Siguiente paso: F9 (#41) y F10 con SPACE (#42, #51)~~ — F10 hecho en la sesión 22
 
