@@ -441,8 +441,10 @@ ante el `404` de SPACE: `pricing` no se entera de las altas, porque no hay
   se publica, y en SPACE el servicio se llama `frsaas`, como la tarifa en
   SPHERE; es el prefijo de toda funcionalidad y todo límite.
 - **Versión fijada** en `pricing/sphere.env`: la cargan `space-bootstrap.sh`
-  (política `all_pick`) y la vista de planes del panel, nunca la última. Una
-  prueba compara su huella con la del repositorio.
+  (política `all_pick`) y el enlace «Pricing» del panel, nunca la última. Una
+  prueba compara su huella con la del repositorio. El panel no pinta la tarifa:
+  SPHERE no publica su renderizador, y el enlace abre su página en la versión
+  fijada (`/p/{pricingId}?version={versionId}`).
 - **`SPHERE_SYNC_ENABLED=false`**: SPACE ejecuta las expresiones con `eval()`, y
   con sincronización automática ejecutaría código quien publicara en SPHERE.
 - **Claves de organización `MANAGEMENT`** para `fr` y `pricing`. `EVALUATION`
