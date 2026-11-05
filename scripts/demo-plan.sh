@@ -76,8 +76,8 @@ const base = 'http://localhost:3000/api/v1';
 const headers = { 'x-api-key': process.env.K, 'content-type': 'application/json' };
 const sub = {
   // SPACE impone la versión fijada de la tarifa (all_pick): la que se envía da igual.
-  contractedServices: { frsaas: 'fijada-por-space' },
-  subscriptionPlans: { frsaas: process.env.P },
+  contractedServices: { faceapi: 'fijada-por-space' },
+  subscriptionPlans: { faceapi: process.env.P },
   subscriptionAddOns: {},
 };
 const call = (method, path, body) => fetch(base + path, { method, headers, body: JSON.stringify(body) });

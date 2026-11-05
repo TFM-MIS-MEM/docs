@@ -10,7 +10,7 @@
 #
 # Qué hace (el detalle, en space-bootstrap.mjs):
 #   1. Claves de organización MANAGEMENT para fr-commercial y para pricing.
-#   2. El servicio `frsaas` desde SPHERE, con la versión fijada en
+#   2. El servicio `faceapi` desde SPHERE, con la versión fijada en
 #      pricing-microservice/pricing/sphere.env (política all_pick).
 #   3. Escribe SPACE_URL y SPACE_API_KEY en los .env de fr-commercial y pricing.
 #
