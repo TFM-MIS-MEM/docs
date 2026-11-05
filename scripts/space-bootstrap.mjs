@@ -22,7 +22,7 @@
 //      pricing (POST /features/** solo admite ALL y MANAGEMENT), y
 //      fr-commercial además crea los contratos Free. Una clave ya emitida que
 //      sigue en la organización se reutiliza.
-//   2. El servicio `frsaas` desde SPHERE, con la política all_pick y la versión
+//   2. El servicio `faceapi` desde SPHERE, con la política all_pick y la versión
 //      fijada. Con pick, una versión nueva en SPHERE no entra hasta cambiar la
 //      selección; las dos primeras versiones tienen el mismo createdAt y nadie
 //      ha comprobado cómo desempata SPACE «la última».
@@ -30,7 +30,7 @@
 // ===========================================================
 
 const BASE = 'http://localhost:3000/api/v1';
-const SERVICE = 'frsaas';
+const SERVICE = 'faceapi';
 const env = process.env;
 
 const log = (...args) => console.error('  ', ...args);

@@ -438,8 +438,13 @@ ante el `404` de SPACE: `pricing` no se entera de las altas, porque no hay
 - **La tarifa** es Pricing2Yaml 3.1 con una `expression` por funcionalidad: sin
   ella, SPACE la evalúa siempre a `false`. La copia de referencia es
   `pricing-microservice/pricing/fr-commercial-pricing.yaml`. SPHERE es donde
-  se publica, y en SPACE el servicio se llama `frsaas`, como la tarifa en
-  SPHERE; es el prefijo de toda funcionalidad y todo límite.
+  se publica, como «FaceAPI», y en SPACE el servicio se llama `faceapi`: SPACE
+  le da el nombre de la tarifa en SPHERE en minúsculas, no el `saasName` del
+  YAML, y no admite otro. Es el prefijo de toda funcionalidad y todo límite, y
+  `fr` y `pricing` lo tienen fijado: **renombrar la tarifa en SPHERE cambia el
+  nombre del servicio la próxima vez que se cree**, y el plan deja de
+  evaluarse (`503 PLAN_UNAVAILABLE`). Pasó al reiniciar SPACE en la sesión 25,
+  cuando la tarifa ya se llamaba «FaceAPI» y el código aún decía `frsaas`.
 - **Versión fijada** en `pricing/sphere.env`: la cargan `space-bootstrap.sh`
   (política `all_pick`) y el enlace «Pricing» del panel, nunca la última. Una
   prueba compara su huella con la del repositorio. El panel no pinta la tarifa:
