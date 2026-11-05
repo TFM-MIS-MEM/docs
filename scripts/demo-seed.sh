@@ -15,14 +15,16 @@
 #   3. Escribe acme-demo/.env con la API KEY y el id de la galería.
 #   3b. Pone la cuenta en BUSINESS en SPACE (demo-plan.sh): ACME entra por el
 #      canal de API, que FREE no incluye.
-#   4. Levanta ACME y matricula, a través de su backend (que guarda la
-#      correspondencia), a Christina Koch con seed/koch_2023_480x640.jpg.
+#   4. Levanta ACME y registra, a través de su backend (que asigna el usuario
+#      virtual y guarda la correspondencia), a Christina Hammock Koch con
+#      seed/koch_2023_480x640.jpg.
 #
 # Idempotente: si acme-demo/.env ya vale (getGallery da 200), no toca la cuenta,
-# ni la galería ni el fichero; y una matrícula que ya existe se da por buena.
+# ni la galería ni el fichero; y si ACME ya tiene a la estudiante, no la vuelve
+# a registrar (otro registro le daría un usuario numerado, chrhamkoc1).
 #
 # Las fotos son retratos oficiales de la NASA, de dominio público
-# (acme-demo/seed/SOURCES.md). La matrícula es ficticia, sin relación con la
+# (acme-demo/seed/SOURCES.md). El registro es ficticio, sin relación con la
 # persona ni con la NASA.
 # ===========================================================
 
@@ -70,10 +72,11 @@ DEMO_EMAIL="${DEMO_EMAIL:-demo-acme@example.com}"
 DEMO_PASSWORD="${DEMO_PASSWORD:-AcmeDemo-2026!}"
 GALLERY_NAME="ACME · Matrícula"
 
-# Estudiante de respaldo. Número ficticio.
-STUDENT_NUMBER="ACME-2026-0042"
-STUDENT_NAME="Christina Koch"
-STUDENT_PROGRAMME="Grado en Física"
+# Estudiante de respaldo: nombre y dos apellidos, como pide el registro de ACME.
+STUDENT_FIRST_NAME="Christina"
+STUDENT_LAST_NAME_1="Hammock"
+STUDENT_LAST_NAME_2="Koch"
+STUDENT_NAME="$STUDENT_FIRST_NAME $STUDENT_LAST_NAME_1 $STUDENT_LAST_NAME_2"
 ENROL_PHOTO="$ACME_DIR/seed/koch_2023_480x640.jpg"
 
 CYAN='\033[0;36m'
@@ -189,7 +192,7 @@ print(json.dumps({'name': os.environ['GALLERY_NAME'], 'description': 'Fotos de m
 fi
 
 # ---------------------
-# 4. ACME y la matrícula de respaldo
+# 4. ACME y la estudiante de respaldo
 # ---------------------
 step "Levantando la Universidad ACME..."
 docker compose -f "$ACME_DIR/docker-compose.yml" up --build -d || die "no se pudo levantar ACME."
@@ -204,25 +207,27 @@ done
 [ "$health" = "healthy" ] || die "acme-demo no llegó a estar sano (estado: ${health:-ausente})."
 ok "acme-demo sano"
 
-step "Matriculando a $STUDENT_NAME ($STUDENT_NUMBER) a través de ACME..."
-code=$(curl -s -o "$TMP/out.json" -w '%{http_code}' -X POST "$ACME/api/students" \
-  -F "studentNumber=$STUDENT_NUMBER" -F "fullName=$STUDENT_NAME" \
-  -F "programme=$STUDENT_PROGRAMME" -F "photo=@$ENROL_PHOTO;type=image/jpeg")
-case "$code" in
-  201) ok "matriculada" ;;
-  409) ok "ya estaba matriculada" ;;
-  *) die "la matrícula respondió $code: $(head -c 300 "$TMP/out.json")" ;;
-esac
-
-# El 409 de ACME puede venir del SaaS (EXTERNAL_ID_ALREADY_EXISTS) sin que ACME
-# tenga la correspondencia, si se perdió su volumen y no el de fr. Se comprueba.
-curl -s "$ACME/api/students" -o "$TMP/students.json"
-python3 -c "
-import json, sys
+# El usuario lo asigna ACME: se busca por el nombre completo en su registro.
+student_username() {
+  curl -s "$ACME/api/students" -o "$TMP/students.json"
+  STUDENT_NAME="$STUDENT_NAME" python3 -c "
+import json, os
 s = json.load(open('$TMP/students.json'))['students']
-sys.exit(0 if any(x['studentNumber'] == '$STUDENT_NUMBER' for x in s) else 1)" \
-  || die "ACME no tiene registrada a $STUDENT_NUMBER aunque el SaaS sí: se perdió el volumen acme-demo-data. Borra la identidad desde la API o empieza con dev-down.sh -v."
-ok "ACME tiene la correspondencia de $STUDENT_NUMBER"
+print(next((x['username'] for x in s if x['fullName'] == os.environ['STUDENT_NAME']), ''))" 2>/dev/null
+}
+
+step "Registrando a $STUDENT_NAME a través de ACME..."
+USERNAME=$(student_username)
+if [ -n "$USERNAME" ]; then
+  ok "ya estaba registrada: $USERNAME"
+else
+  code=$(curl -s -o "$TMP/out.json" -w '%{http_code}' -X POST "$ACME/api/students" \
+    -F "firstName=$STUDENT_FIRST_NAME" -F "lastName1=$STUDENT_LAST_NAME_1" \
+    -F "lastName2=$STUDENT_LAST_NAME_2" -F "photo=@$ENROL_PHOTO;type=image/jpeg")
+  [ "$code" = "201" ] || die "el registro respondió $code: $(head -c 300 "$TMP/out.json")"
+  USERNAME=$(field username)
+  ok "registrada con el usuario $USERNAME"
+fi
 
 echo ""
 echo -e "${CYAN}===============================================${NC}"
@@ -230,9 +235,9 @@ echo -e "${GREEN} Datos de respaldo listos${NC}"
 echo -e "${CYAN}===============================================${NC}"
 echo ""
 echo "   Panel:  http://localhost:5173  —  $DEMO_EMAIL / $DEMO_PASSWORD"
-echo "   ACME:   http://localhost:4000  —  estudiante $STUDENT_NUMBER"
+echo "   ACME:   http://localhost:4000  —  usuario $USERNAME"
 echo ""
-echo "   Acceso al examen con la foto de 2014:"
-echo "     curl -s -X POST $ACME/api/exam-access -F studentNumber=$STUDENT_NUMBER \\"
+echo "   Inicio de sesión con la foto de 2014:"
+echo "     curl -s -X POST $ACME/api/sessions -F username=$USERNAME \\"
 echo "          -F photo=@$ACME_DIR/seed/koch_2014_480x640.jpg"
 echo ""

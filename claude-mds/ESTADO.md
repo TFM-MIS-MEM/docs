@@ -2042,6 +2042,32 @@ el enlace persistente de SPHERE y su primera y última página).
   hay que arreglarlo o retirarlo; el comentario de `pnpm-workspace.yaml` de
   auth está desfasado.
 
+**Sesión 25 — la demo: Pricing en SPHERE y ACME con usuario virtual.** Sin
+código de servicio ni cambios de contrato.
+
+- **Redespliegue.** auth, pricing, fr, frontend y ACME reconstruidos con los
+  merges de la sesión 24. El build del frontend falló dos veces por un
+  `DeadlineExceeded` al pedir a Docker Hub los metadatos de `node:24-alpine` y
+  `nginx:1.29-alpine`; con un `docker pull` previo de las dos, pasó.
+- **Pricing (Miguel).** SPHERE no publica su renderizador: vive en su
+  frontend (MIT), sin paquete; `pricing-renderer` de npm (0.1.0, un único
+  mantenedor, sin relación con SPHERE) se descarta. El frontend deja de pintar
+  la tarifa: el botón «Planes» pasa a «Pricing» y abre en otra pestaña
+  `https://sphere.score.us.es/p/{pricingId}?version={versionId}` con la versión
+  fijada en `sphere.env` (SPHERE acepta el id en `?version=`; si no la
+  encuentra, abre la última sin avisar). Fuera `pricing4ts`, la copia local de
+  la tarifa (frontend#3) y el `override` de `uuid`. Coste: la tarifa ya no se
+  ve sin red.
+- **ACME (Miguel).** Solo dos pantallas, iniciar sesión y registrarse; fuera la
+  matrícula con número de estudiante, el acceso al examen y la secretaría. El
+  registro pide nombre y dos apellidos y asigna un usuario virtual al estilo de
+  la US (`migencmar`; repetidos numerados desde 1), que es el `externalId`. El
+  inicio de sesión es `verifyAgainstIdentity` con el usuario y una foto.
+  `demo-seed.sh` registra a Christina Hammock Koch (`chrhamkoc`).
+- **Queda.** Ramas sin commit en frontend, acme-demo, docs y pricing (solo el
+  comentario de `sphere.env`). Actualizar la memoria donde describa la vista de
+  planes y los casos de uso de ACME.
+
 ### La fase 1 NO está terminada
 
 La cadena de identidad ---`auth`, la pasarela y el enrutado--- lo está, y desde
